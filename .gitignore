@@ -1,0 +1,37 @@
+# python generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# venv
+.venv
+
+# tools
+.mypy_cache/
+
+# private settings
+.env
+.envrc
+.tool-versions
+/config/xrayproxy.toml
+/config/xrayproxy-*.toml
+alembic.ini
+
+# generated files
+/data/*
+!/data/**/.gitkeep
+
+## https://github.com/github/gitignore/blob/main/VisualStudio.gitignore ##
+# VS Code files for those working on multiple tools
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/

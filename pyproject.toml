@@ -1,0 +1,112 @@
+[project]
+name = "xrayproxy"
+version = "1.0.0"
+description = "X-Ray Proxy is a cloud-oriented proxy for KanColle"
+authors = [
+    { name = "Ryusuke SEKIYAMA", email = "rsky0711@gmail.com" }
+]
+dependencies = [
+    "aioboto3>=15.2.0",
+    "alembic>=1.17.0",
+    "Brotli>=1.1.0",
+    "httpx[brotli,zstd]>=0.28.1",
+    "mitmproxy>=12.2.0",
+    "pillow>=12.0.0",
+    "SQLAlchemy>=2.0.44",
+    "tenacity>=9.1.2",
+    "x-ray-webhook==1.0.0",
+    "zstandard>=0.25.0",
+]
+readme = "README.md"
+requires-python = ">= 3.13"
+
+[dependency-groups]
+dev = [
+    "mdformat>=0.7.22",
+    "mdformat-footnote>=0.1.1",
+    "mdformat-frontmatter>=2.0.8",
+    "mdformat-gfm>=1.0.0",
+    "mdformat-gfm-alerts>=2.0.0",
+    "mdformat-tables>=1.0.0",
+    "mypy>=1.18.2",
+    "poethepoet>=0.37.0",
+    "ruff>=0.14.0",
+    "types-aioboto3[s3]>=15.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+managed = true
+
+[tool.uv.sources]
+# note: `uv cache clean x-ray-webhook` to clear cache
+x-ray-webhook = { git = "https://github.com/rsky/x-ray-webhook-python.git" }
+
+[tool.poe]
+executor.type = "uv"
+
+[tool.poe.tasks]
+proxy = "mitmproxy --set connection_strategy=lazy --set confdir=data/mitmproxy -s src/xrayproxy/scripts/xray.py"
+dump = "mitmdump --set connection_strategy=lazy --set confdir=data/mitmproxy -s src/xrayproxy/scripts/xray.py"
+web = "mitmweb --set connection_strategy=lazy --set confdir=data/mitmproxy -s src/xrayproxy/scripts/xray.py"
+
+"log:list" = "python -m xrayproxy.commands.log_list"
+"log:truncate" = "python -m xrayproxy.commands.log_truncate"
+pac = "python -m xrayproxy.commands.pac"
+search = "python -m xrayproxy.commands.search"
+sprite = "python -m xrayproxy.commands.sprite"
+
+"db:migration:upgrade" = "alembic upgrade head"
+"db:migration:revision" = "alembic revision"
+
+lint = ["lint:ruff", "lint:mypy"]
+"lint:ruff" = "ruff check src"
+"lint:mypy" = "mypy src"
+
+format = ["format:src"]
+"format:all" = ["format:src", "format:migration", "format:tests", "format:docs"]
+
+"format:src" = ["ruff:fix:src", "ruff:format:src"]
+"ruff:fix:src" = "ruff check --fix src"
+"ruff:format:src" = "ruff format src"
+
+"format:migration" = ["ruff:fix:migration", "ruff:format:migration"]
+"ruff:fix:migration" = "ruff check --fix migration"
+"ruff:format:migration" = "ruff format migration"
+
+"format:tests" = ["ruff:fix:tests", "ruff:format:tests"]
+"ruff:fix:tests" = "ruff check --fix tests"
+"ruff:format:tests" = "ruff format tests"
+
+"format:docs" = "mdformat --number --extensions=frontmatter --extensions=footnote --extensions=gfm --extensions=gfm_alerts --extensions=tables README.md CLAUDE.md docs"
+
+test = "python -m unittest discover tests"
+
+[tool.ruff]
+extend-exclude = ["src/xrayproxy/generated"]
+line-length = 119
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.mypy]
+#follow_imports = "skip"
+strict = true
+
+[[tool.mypy.overrides]]
+module = ['brotli']
+ignore_missing_imports = true
+
+[tool.hatch.build]
+exclude = [
+    ".editorconfig",
+    ".idea/",
+    ".vscode/",
+    "setup.cfg",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true

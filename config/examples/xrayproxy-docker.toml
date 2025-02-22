@@ -1,0 +1,26 @@
+log_verbosity = "DEBUG"
+
+[storage]
+endpoint_url = "http://minio:9000"
+region = "us-east-1"
+access_key_id = "dummy-access-key"
+secret_access_key = "dummy-secret-key"
+resources_bucket = "x-ray"
+data_bucket = "x-ray"
+api_log_bucket = "x-ray-log"
+allow_public_access = true
+
+[resource]
+save_mode = "default"
+ship_graphic_versioning = false
+
+[api_log]
+save_sortie_log = false
+save_practice_log = false
+save_other_log = false
+pretty = false
+
+[logbook_kai]
+enabled = false
+host = "host.docker.internal"
+port = 8888

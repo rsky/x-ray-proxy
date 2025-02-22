@@ -1,0 +1,37 @@
+log_verbosity = "DEBUG"
+
+[storage]
+endpoint_url = "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
+region = "auto"
+access_key_id = "<accessKeyId>"
+secret_access_key = "<secretAccessKey>"
+resources_bucket = "x-ray"
+data_bucket = "x-ray"
+api_log_bucket = "x-ray-log"
+allow_public_access = false
+
+[resource]
+save_mode = "default"
+ship_graphic_versioning = false
+
+[api_log]
+save_sortie_log = false
+save_practice_log = false
+save_other_log = false
+pretty = false
+
+[logbook_kai]
+enabled = false
+host = "127.0.0.1"
+port = 8888
+
+#[[x_ray.webhook]]
+## X-Ray WebhookのエンドポイントURL
+#base_url = "http://localhost:8082/webhook"
+## Cloudflare AccessのService Authで送信するヘッダ情報
+## "${ENV_NAME}" で環境変数 ENV_NAME を参照できます (${}の前後に他の文字列は含められません)
+#client_id = "${CF_ACCESS_CLIENT_ID}"
+#client_secret = "${CF_ACCESS_CLIENT_SECRET}"
+## ローカル開発でCloudflare Accessを使わない場合はx-ray-local-helperで発行したBot用トークンを設定してください
+#client_id = "x-ray-dev-bot"
+#client_secret = "${CF_AUTHORIZATION_COOKIE}"

@@ -1,0 +1,269 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "X-Ray Webhook API",
+    "version": "1.0.0"
+  },
+  "components": {
+    "schemas": {},
+    "parameters": {}
+  },
+  "paths": {
+    "/api_data": {
+      "post": {
+        "description": "Receives KanColle API request and response data",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "member_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "description": "Member ID",
+                    "example": 123456789
+                  },
+                  "request": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Request URL",
+                        "example": "https://w01y.kancolle-server.com/kcsapi/api_get_member/basic"
+                      },
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "description": "Request parameters",
+                        "example": {
+                          "key1": "value1",
+                          "key2": "value2"
+                        }
+                      }
+                    },
+                    "required": [
+                      "url",
+                      "parameters"
+                    ]
+                  },
+                  "response": {
+                    "type": "object",
+                    "properties": {
+                      "timestamp": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "The UNIX timestamp (in milliseconds) when the response was received",
+                        "example": 1740262942000
+                      },
+                      "data": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "additionalProperties": {
+                              "nullable": true
+                            }
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "nullable": true
+                              }
+                            }
+                          },
+                          {
+                            "nullable": true
+                          },
+                          {
+                            "nullable": true
+                          }
+                        ],
+                        "description": "api_data",
+                        "example": {
+                          "member_id": "123456789",
+                          "nickname": "Admiral 56"
+                        }
+                      }
+                    },
+                    "required": [
+                      "timestamp",
+                      "data"
+                    ]
+                  },
+                  "log": {
+                    "type": "object",
+                    "properties": {
+                      "bucket": {
+                        "type": "string",
+                        "description": "Bucket name",
+                        "example": "x-ray-log"
+                      },
+                      "key": {
+                        "type": "string",
+                        "description": "S3 object key",
+                        "example": "sortie_log/2025/02/22/222222_222222_kcsapi_api_req_sortie_battle.json.br"
+                      }
+                    },
+                    "required": [
+                      "bucket",
+                      "key"
+                    ]
+                  }
+                },
+                "required": [
+                  "member_id",
+                  "request",
+                  "response"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "string",
+                      "description": "Result",
+                      "example": "OK"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/member_info": {
+      "post": {
+        "description": "Updates member information",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "member_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "exclusiveMinimum": true,
+                    "description": "Member ID",
+                    "example": 123456789
+                  },
+                  "nickname": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Member nickname",
+                    "example": "Admiral 56"
+                  },
+                  "host": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Naval district host name",
+                    "example": "w01y.kancolle-server.com"
+                  }
+                },
+                "required": [
+                  "member_id",
+                  "nickname",
+                  "host"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "string",
+                      "description": "Result",
+                      "example": "OK"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resource_update": {
+      "post": {
+        "description": "Notifies that the resource has been updated",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Key of the updated resource",
+                    "example": "assets/ships/0001/full.webp"
+                  },
+                  "timestamp": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The UNIX timestamp (in milliseconds) when the new resource was received",
+                    "example": 1740262942000
+                  }
+                },
+                "required": [
+                  "key",
+                  "timestamp"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "type": "string",
+                      "description": "Result",
+                      "example": "OK"
+                    }
+                  },
+                  "required": [
+                    "result"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

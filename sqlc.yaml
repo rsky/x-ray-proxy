@@ -1,0 +1,19 @@
+version: '2'
+sql:
+  - schema: sql/schema.sql
+    queries: sql/queries
+    engine: sqlite
+    codegen:
+      - out: src/xrayproxy/generated/sqlc
+        plugin: py
+        options:
+          package: xrayproxy.generated.sqlc
+          emit_sync_querier: true
+          emit_async_querier: false
+plugins:
+- name: py
+  wasm:
+    #url: https://downloads.sqlc.dev/plugin/sqlc-gen-python_1.3.0.wasm
+    #sha256: fbedae96b5ecae2380a70fb5b925fd4bff58a6cfb1f3140375d098fbab7b3a3c
+    url: file://bin/sqlc-gen-python.wasm
+    sha256: 4dcc5fd4ae88cec5a9e0fdc6c5791511a9d0d9384b3f32a67c3349e6829e57e8
