@@ -4,7 +4,6 @@ APIレスポンスをX-Ray serverに送信したり、リソースをオブジ�
 
 import asyncio
 import logging
-import re
 from logging import getLogger
 from typing import Any
 
@@ -27,11 +26,10 @@ from xrayproxy.handlers.response.master_data import MASTER_DATA_API_PATH
 from xrayproxy.handlers.response.member_info import OPTION_SETTING_API_PATH
 from xrayproxy.lib.api_token import ApiTokenManager
 from xrayproxy.lib.http import check_request, check_response, perform_request
+from xrayproxy.lib.user_agent import is_mobile_user_agent
 from xrayproxy.lib.xray import create_context
 
 logger = getLogger(__name__)
-
-MOBILE_USER_AGENT_PATTERN = re.compile("iPhone|iPad|Android")
 
 
 class XRayAddon:
@@ -177,7 +175,7 @@ class XRayAddon:
         if (
             flow.request.path == OPTION_SETTING_API_PATH
             and self._mute_mobile
-            and MOBILE_USER_AGENT_PATTERN.search(flow.request.headers.get("user-agent", "")) is not None
+            and is_mobile_user_agent(flow.request.headers.get("user-agent", ""))
         ):
             response_rewriter.force_mute(flow)
 
