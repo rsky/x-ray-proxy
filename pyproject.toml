@@ -53,6 +53,7 @@ proxy = "mitmproxy --set connection_strategy=lazy --set confdir=data/mitmproxy -
 dump = "mitmdump --set connection_strategy=lazy --set confdir=data/mitmproxy -s src/xrayproxy/scripts/xray.py"
 web = "mitmweb --set connection_strategy=lazy --set confdir=data/mitmproxy -s src/xrayproxy/scripts/xray.py"
 
+"log:get" = "python -m xrayproxy.commands.log_get"
 "log:list" = "python -m xrayproxy.commands.log_list"
 "log:truncate" = "python -m xrayproxy.commands.log_truncate"
 pac = "python -m xrayproxy.commands.pac"
