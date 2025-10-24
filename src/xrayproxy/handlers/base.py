@@ -68,49 +68,66 @@ class BaseHandler(ABC):
 
     def load(self, loader: Loader) -> None:
         """
-        Addon.load()から呼ばれる
+        XRayAddon.load()から呼ばれる
         See https://docs.mitmproxy.org/stable/api/events.html#LifecycleEvents.load
         """
         pass
 
     def configure(self, config: Config) -> None:
         """
-        Addon.configure()から呼ばれる
+        XRayAddon.configure()から呼ばれる
         See https://docs.mitmproxy.org/stable/api/events.html#LifecycleEvents.configure
         """
         self.set_log_verbosity(config.log_verbosity)
 
     async def done(self) -> None:
         """
-        Addon.done()から呼ばれる
+        XRayAddon.done()から呼ばれる
         See https://docs.mitmproxy.org/stable/api/events.html#LifecycleEvents.done
         """
         pass
 
 
+class RequestContext(ABC):
+    """
+    RequestHandler.accept()が返してRequestHandler.request()に渡すコンテキストオブジェクト用マーカーインターフェイス
+    """
+
+    pass
+
+
 class BaseRequestHandler(BaseHandler):
     @abstractmethod
-    async def request(self, request: Request) -> Optional[Response]:
+    def accept(self, request: Request) -> bool | RequestContext:
         """
-        Addon.request()から呼ばれる
+        XRayAddon.request()から呼ばれ、このハンドラーが処理するかどうかを判定する
+        TrueまたはRequestContextを返したハンドラーが処理する
+        """
+        pass
+
+    @abstractmethod
+    async def request(self, request: Request, ctx: Optional[RequestContext] = None) -> Optional[Response]:
+        """
+        accept()がTrueを返した場合にXRayAddon.request()から呼ばれる
+        Responseを返した場合は上流へのリクエストが行われず、XRayAddon.response()でも処理対象外となる
         See https://docs.mitmproxy.org/stable/api/events.html#HTTPEvents.request
         """
-        raise NotImplementedError()
+        pass
 
 
 class BaseResponseHandler(BaseHandler):
     @abstractmethod
     def accept(self, context: Context) -> bool:
         """
-        Addon.response()から呼ばれ、このハンドラーが処理するかどうかを判定する
+        XRayAddon.response()から呼ばれ、このハンドラーが処理するかどうかを判定する
         Trueを返したハンドラーが処理する
         """
-        raise NotImplementedError()
+        pass
 
     @abstractmethod
     async def response(self, context: Context) -> None:
         """
-        accept()がTrueを返した場合にAddon.response()から呼ばれる
+        accept()がTrueを返した場合にXRayAddon.response()から呼ばれる
         See https://docs.mitmproxy.org/stable/api/events.html#HTTPEvents.response
         """
-        raise NotImplementedError()
+        pass

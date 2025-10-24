@@ -70,9 +70,21 @@ def create_request_info(request: mitmproxy.http.Request) -> "RequestInfo":
     return RequestInfo(method=method, url=url, headers=headers, data=data)
 
 
-async def perform_request(
-    session: httpx.AsyncClient, request: mitmproxy.http.Request
-) -> Optional[mitmproxy.http.Response]:
+async def perform_request(session: httpx.AsyncClient, request: mitmproxy.http.Request) -> mitmproxy.http.Response:
+    """
+    通信エラー時のリトライ機能を持たないmitmproxyに代わって艦これサーバーへのリクエストを行う。
+    Performs an asynchronous request using the provided HTTPX client session and retries
+    on specific transport errors with a defined strategy. Converts HTTPX responses to
+    mitmproxy responses where applicable.
+
+    Args:
+        session: An HTTPX asynchronous client used for making HTTP requests.
+        request: A mitmproxy HTTP request object representing the original request.
+
+    Returns:
+        A mitmproxy HTTP response object converted from the HTTPX response.
+        Returns a 5xx error response if the request fails.
+    """
     req = create_request_info(request)
     retry_error_status_code = 503
 
@@ -109,10 +121,10 @@ async def perform_request(
         return _httpx_response_to_mitmproxy_response(e.response)
     except Exception as e:
         err_cls = e.__class__.__name__
-        logger.error(f"Unexpected error [{err_cls}]: url={req.url}")
-        return None
+        logger.error(f"Unexpected error [{err_cls}]: url={req.url}", exc_info=True)
 
-    return None
+    # 予期しないエラー時は500 Internal Server Error扱いとする
+    return mitmproxy.http.Response.make(status_code=500)
 
 
 def _httpx_response_to_mitmproxy_response(response: httpx.Response) -> mitmproxy.http.Response:
@@ -130,6 +142,9 @@ def check_request(request: mitmproxy.http.Request) -> bool:
 
 
 def check_response(request: mitmproxy.http.Request, response: mitmproxy.http.Response) -> bool:
+    if not check_request(request):
+        return False
+
     if request.method not in {"GET", "POST"}:
         # GET, POST以外のリクエストへのレスポンスは扱わない
         return False

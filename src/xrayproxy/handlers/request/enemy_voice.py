@@ -5,7 +5,7 @@ from typing import Optional
 from mitmproxy.http import Request, Response
 
 from xrayproxy.config import Config
-from xrayproxy.handlers.base import BaseRequestHandler
+from xrayproxy.handlers.base import BaseRequestHandler, RequestContext
 from xrayproxy.handlers.mixin import ResponseFileMixin
 
 logger = getLogger(__name__)
@@ -40,11 +40,11 @@ class EnemyVoiceRequestHandler(BaseRequestHandler, ResponseFileMixin):
         self._all_voice_types = not bool(c.voice_types)
         self._cache_max_age = config.rewrite.cache_max_age
 
-    async def request(self, request: Request) -> Optional[Response]:
-        if self._enabled and self._check_path(request.path):
-            return self.response_file(self._silent_mp3_path, "audio/mp3", request.headers.get("If-None-Match"))
-        else:
-            return None
+    def accept(self, request: Request) -> bool:
+        return self._enabled and self._check_path(request.path)
+
+    async def request(self, request: Request, ctx: Optional[RequestContext] = None) -> Optional[Response]:
+        return self.response_file(self._silent_mp3_path, "audio/mp3", request.headers.get("If-None-Match"))
 
     def _check_path(self, path: str) -> bool:
         # 深海棲艦ボイスのパスでなければ何もしない
