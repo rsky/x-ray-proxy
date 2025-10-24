@@ -88,7 +88,11 @@ class XRayAddon:
         )
 
         self._boto_session = aioboto3.Session(botocore_session=botocore_session)
-        self._http_session = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(timeout=5.0, connect=10.0))
+        self._http_session = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=httpx.Timeout(timeout=5.0, connect=10.0),
+            http2=True,
+        )
 
         for handler in self._request_handlers + self._response_handlers:
             handler.load(loader)

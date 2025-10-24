@@ -738,6 +738,9 @@ brotli = [
     { name = "brotli", marker = "platform_python_implementation == 'CPython'" },
     { name = "brotlicffi", marker = "platform_python_implementation != 'CPython'" },
 ]
+http2 = [
+    { name = "h2" },
+]
 zstd = [
     { name = "zstandard" },
 ]
@@ -1941,7 +1944,7 @@ dependencies = [
     { name = "aioboto3" },
     { name = "alembic" },
     { name = "brotli" },
-    { name = "httpx", extra = ["brotli", "zstd"] },
+    { name = "httpx", extra = ["brotli", "http2", "zstd"] },
     { name = "mitmproxy" },
     { name = "pillow" },
     { name = "sqlalchemy" },
@@ -1969,7 +1972,7 @@ requires-dist = [
     { name = "aioboto3", specifier = ">=15.2.0" },
     { name = "alembic", specifier = ">=1.17.0" },
     { name = "brotli", specifier = ">=1.1.0" },
-    { name = "httpx", extras = ["brotli", "zstd"], specifier = ">=0.28.1" },
+    { name = "httpx", extras = ["http2", "brotli", "zstd"], specifier = ">=0.28.1" },
     { name = "mitmproxy", specifier = ">=12.2.0" },
     { name = "pillow", specifier = ">=12.0.0" },
     { name = "sqlalchemy", specifier = ">=2.0.44" },
