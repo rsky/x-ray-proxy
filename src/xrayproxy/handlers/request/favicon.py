@@ -5,7 +5,7 @@ from typing import Optional
 from mitmproxy.http import Request, Response
 
 from xrayproxy.config import Config
-from xrayproxy.handlers.base import BaseRequestHandler
+from xrayproxy.handlers.base import BaseRequestHandler, RequestContext
 from xrayproxy.handlers.mixin import ResponseFileMixin
 
 logger = getLogger(__name__)
@@ -29,9 +29,9 @@ class FaviconRequestHandler(BaseRequestHandler, ResponseFileMixin):
         self._enabled = config.rewrite.dummy_favicon
         self._cache_max_age = config.rewrite.cache_max_age
 
-    async def request(self, request: Request) -> Optional[Response]:
-        if self._enabled and request.path == "/favicon.ico":
-            path = os.path.join(self._asserts_dir, "blank16x16.png")
-            return self.response_file(path, "image/png", request.headers.get("If-None-Match"))
-        else:
-            return None
+    def accept(self, request: Request) -> bool:
+        return self._enabled and request.path == "/favicon.ico"
+
+    async def request(self, request: Request, ctx: Optional[RequestContext] = None) -> Optional[Response]:
+        path = os.path.join(self._asserts_dir, "blank16x16.png")
+        return self.response_file(path, "image/png", request.headers.get("If-None-Match"))

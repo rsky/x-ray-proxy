@@ -5,7 +5,7 @@ APIレスポンスをX-Ray serverに送信したり、リソースをオブジ�
 import asyncio
 import logging
 from logging import getLogger
-from typing import Any
+from typing import Any, Optional
 
 import aioboto3
 import aiobotocore.session
@@ -14,14 +14,14 @@ import httpx
 import sqlalchemy
 from mitmproxy import ctx
 from mitmproxy.addonmanager import Loader
-from mitmproxy.http import HTTPFlow
+from mitmproxy.http import HTTPFlow, Response
 
 from xrayproxy.config import ReplaceShipGraphicEntry, load_config_toml
 from xrayproxy.generated.sqlc.master_data import Querier
 from xrayproxy.handlers import mixin, response_rewriter
 from xrayproxy.handlers import request as request_handlers
 from xrayproxy.handlers import response as response_handlers
-from xrayproxy.handlers.base import BaseRequestHandler, BaseResponseHandler
+from xrayproxy.handlers.base import BaseRequestHandler, BaseResponseHandler, RequestContext
 from xrayproxy.handlers.response.master_data import MASTER_DATA_API_PATH
 from xrayproxy.handlers.response.member_info import OPTION_SETTING_API_PATH
 from xrayproxy.lib.api_token import ApiTokenManager
@@ -30,6 +30,9 @@ from xrayproxy.lib.user_agent import is_mobile_user_agent
 from xrayproxy.lib.xray import create_context
 
 logger = getLogger(__name__)
+
+
+FLOW_MARK_X_RAY_REQUEST_HOOKED = "x_ray:request_hooked"
 
 
 class XRayAddon:
@@ -85,8 +88,11 @@ class XRayAddon:
         )
 
         self._boto_session = aioboto3.Session(botocore_session=botocore_session)
-        # self._boto_session = aioboto3.Session()
-        self._http_session = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(timeout=5.0, connect=10.0))
+        self._http_session = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=httpx.Timeout(timeout=5.0, connect=10.0),
+            http2=True,
+        )
 
         for handler in self._request_handlers + self._response_handlers:
             handler.load(loader)
@@ -147,17 +153,35 @@ class XRayAddon:
             return
 
         for req_handler in self._request_handlers:
-            response = await req_handler.request(request)
+            response: Optional[Response] = None
+            match req_handler.accept(request):
+                case RequestContext() as req_ctx:
+                    response = await req_handler.request(request, req_ctx)
+                case True:
+                    response = await req_handler.request(request)
+                case _:
+                    continue
+
             if response is not None:
                 flow.response = response
+                flow.marked = FLOW_MARK_X_RAY_REQUEST_HOOKED
                 return
 
-        response = await perform_request(self._http_session, request)
-        if response is None:
+        # mitmproxyは通信エラー時のリトライ機能を持たないので自前でリクエストする
+        flow.response = await perform_request(self._http_session, request)
+
+    async def response(self, flow: HTTPFlow) -> None:
+        """
+        See https://docs.mitmproxy.org/stable/api/events.html#HTTPEvents.response
+        """
+
+        # request() でフックされレスポンスが作られたflowは取り扱わない
+        if flow.marked == FLOW_MARK_X_RAY_REQUEST_HOOKED:
             return
 
-        flow.response = response
-        if not check_response(request, response):
+        request = flow.request
+        response = flow.response
+        if response is None or not check_response(request, response):
             return
 
         context = create_context(flow)
