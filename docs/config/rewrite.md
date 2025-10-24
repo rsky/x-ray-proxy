@@ -55,7 +55,7 @@ voice_types = [
 ]
 ```
 
-## `[[rewrite.replace_ship_graphics]]`
+## `[[rewrite.replace_ship_graphic]]`
 
 キャラクターグラフィックを差し替える。複数回記述可能。
 
@@ -69,11 +69,11 @@ voice_types = [
 設定例1: *レキシントンをサラトガに差し替える*
 
 ```toml
-[[rewrite.replace_ship_graphics]]
+[[rewrite.replace_ship_graphic]]
 from_ship_id = 966  # Lexington
 to_ship_id = 433  # Saratoga
 
-[[rewrite.replace_ship_graphics]]
+[[rewrite.replace_ship_graphic]]
 from_ship_id = 735  # Lexington改
 to_ship_id = 438  # Saratoga改
 ```
@@ -81,7 +81,7 @@ to_ship_id = 438  # Saratoga改
 設定例2: *秋津洲改の立ち絵を水着modeで固定する*
 
 ```toml
-[[rewrite.replace_ship_graphics]]
+[[rewrite.replace_ship_graphic]]
 from_ship_id = 450  # 秋津洲改
 to_version = 39  # 39: 水着, 40: ノーマル, 41: お正月
 full_only = true
