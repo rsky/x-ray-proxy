@@ -26,7 +26,7 @@ PATH_PREFIXES_TO_HANDLE: tuple[str, ...] = (
     "/kcs2/img/sally/",
 )
 
-LOGBOOK_HOST: str = "localhost"
+LOGBOOK_HOST: str = "127.0.0.1"
 LOGBOOK_DEFAULT_PORT: int = 8888
 
 HTTP_OK: int = 200
