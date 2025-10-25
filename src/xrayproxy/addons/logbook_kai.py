@@ -4,6 +4,7 @@ logbook-kaiから起動するmitmdump用アドオン
 
 import asyncio
 import base64
+import enum
 import os
 import socket
 import time
@@ -31,6 +32,7 @@ LOGBOOK_DEFAULT_PORT: int = 8888
 HTTP_OK: int = 200
 BUFF_SIZE: int = 1024
 KEEP_ALIVE_TIMEOUT: int = 15
+MAX_ATTEMPTS: int = 3
 
 logger = getLogger(__name__)
 
@@ -40,6 +42,15 @@ class PassiveServerParams:
     path: str
     headers: list[tuple[str, str]]
     content: bytes | None
+    attempts: int = 1
+
+    def clone_for_retry(self) -> "PassiveServerParams":
+        return PassiveServerParams(
+            path=self.path,
+            headers=self.headers,
+            content=self.content,
+            attempts=self.attempts + 1,
+        )
 
 
 def create_params(req: Request, res: Response) -> PassiveServerParams:
@@ -172,86 +183,113 @@ class LogbookKaiAddon:
         loop = asyncio.get_running_loop()
         with socket.create_connection((LOGBOOK_HOST, self.logbook_port)) as sock:
             sock.setblocking(False)
-            socket_last_used_time = time.time()
-            conn = h11.Connection(our_role=h11.CLIENT)
+            client = AsyncKeepAliveClient(loop, sock)
 
             while True:
                 params = await self.queue.get()
-                if time.time() - socket_last_used_time > KEEP_ALIVE_TIMEOUT:
-                    # タイムアウトに指定した秒数以上通信をしていなければリトライ
-                    logger.info("[mitmproxy-logbook-kai addon] Connection timeout")
-                    await self.queue.put(params)
-                    break
-
-                socket_last_used_time = time.time()
                 try:
-                    request_sent = False
-                    await self.send(params, conn, sock, loop)
-                    request_sent = True
-
-                    events = await self.get_events(conn, sock, loop)
-                    if not self.verify_events(events):
-                        # レスポンスが期待通りでなかったらコネクションを作り直す
-                        break
-
-                    conn.start_next_cycle()
-
-                except (h11.RemoteProtocolError, ConnectionError) as e:
-                    logger.error(f"[mitmproxy-logbook-kai addon] Connection error: {e}")
-                    if not request_sent:
-                        # リクエスト未送信の場合はリトライ
-                        await self.queue.put(params)
-                    break
-
+                    result = await client.send(params)
+                    match result:
+                        case SendResult.SUCCESS:
+                            pass
+                        case SendResult.MUST_DISCONNECT:
+                            break
+                        case SendResult.TIMEOUT | SendResult.MUST_RETRY:
+                            reason = "timeout" if result is SendResult.TIMEOUT else "error"
+                            if params.attempts < MAX_ATTEMPTS:
+                                logger.info(
+                                    f"[mitmproxy-logbook-kai addon] Retrying {params.path} "
+                                    f"(attempt {params.attempts + 1}/{MAX_ATTEMPTS}) due to connection {reason}"
+                                )
+                                await self.queue.put(params.clone_for_retry())
+                            else:
+                                logger.warning(
+                                    "[mitmproxy-logbook-kai addon] Max attempts "
+                                    f"({MAX_ATTEMPTS}) exceeded for {params.path}"
+                                )
+                            break
                 finally:
                     self.queue.task_done()
 
-    async def send(
+
+class SendResult(enum.Enum):
+    SUCCESS = enum.auto()
+    TIMEOUT = enum.auto()
+    MUST_DISCONNECT = enum.auto()
+    MUST_RETRY = enum.auto()
+
+
+class AsyncKeepAliveClient:
+    def __init__(
         self,
-        params: PassiveServerParams,
-        conn: h11.Connection,
-        sock: socket.socket,
         loop: asyncio.AbstractEventLoop,
+        sock: socket.socket,
+        timeout: int = KEEP_ALIVE_TIMEOUT,
     ) -> None:
+        self.conn = h11.Connection(our_role=h11.CLIENT)
+        self.loop = loop
+        self.sock = sock
+        self.timeout = timeout
+        self.last_used_time = time.time()
+
+    def is_timed_out(self) -> bool:
+        """タイムアウトしているかチェック"""
+        return time.time() - self.last_used_time > self.timeout
+
+    async def send(self, params: PassiveServerParams) -> SendResult:
+        if self.is_timed_out():
+            return SendResult.TIMEOUT
+
+        request_sent = False
+        try:
+            await self.send_request(params)
+            request_sent = True
+
+            events = await self.get_events()
+            if not self.verify_events(events):
+                return SendResult.MUST_DISCONNECT
+
+            self.conn.start_next_cycle()
+            self.last_used_time = time.time()  # 成功時に更新
+
+            return SendResult.SUCCESS
+
+        except (h11.RemoteProtocolError, ConnectionError) as e:
+            logger.error(f"[mitmproxy-logbook-kai addon] Connection error: {e}")
+            if not request_sent:
+                return SendResult.MUST_RETRY
+            else:
+                return SendResult.MUST_DISCONNECT
+
+    async def send_request(self, params: PassiveServerParams) -> None:
         req = h11.Request(
             method="POST",
             headers=params.headers,
             target=f"/pasv{params.path}",
         )
-        await self.send_event(req, conn, sock, loop)
+        await self.send_event(req)
         if params.content is not None:
-            await self.send_event(h11.Data(params.content), conn, sock, loop)
-        await self.send_event(h11.EndOfMessage(), conn, sock, loop)
+            await self.send_event(h11.Data(params.content))
+        await self.send_event(h11.EndOfMessage())
 
-    @staticmethod
-    async def send_event(
-        event: h11.Event,
-        conn: h11.Connection,
-        sock: socket.socket,
-        loop: asyncio.AbstractEventLoop,
-    ) -> None:
-        data = conn.send(event)
+    async def send_event(self, event: h11.Event) -> None:
+        data = self.conn.send(event)
         if data is not None:
-            await loop.sock_sendall(sock, data)
+            await self.loop.sock_sendall(self.sock, data)
 
-    @staticmethod
-    async def get_events(
-        conn: h11.Connection,
-        sock: socket.socket,
-        loop: asyncio.AbstractEventLoop,
-    ) -> list[h11.Event]:
+    async def get_events(self) -> list[h11.Event]:
         events: list[h11.Event] = []
 
         while True:
-            event = conn.next_event()
+            event = self.conn.next_event()
 
             if event is h11.NEED_DATA:
                 # 追加データが必要な場合は読み込む
-                data = await loop.sock_recv(sock, BUFF_SIZE)
+                data = await self.loop.sock_recv(self.sock, BUFF_SIZE)
                 if not data:
                     # 接続が閉じられた
                     break
-                conn.receive_data(data)
+                self.conn.receive_data(data)
                 continue
 
             if isinstance(event, (h11.Response, h11.Data, h11.EndOfMessage, h11.ConnectionClosed)):
