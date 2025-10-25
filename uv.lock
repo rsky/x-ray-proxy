@@ -373,14 +373,14 @@ wheels = [
 
 [[package]]
 name = "botocore-stubs"
-version = "1.40.58"
+version = "1.40.59"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "types-awscrt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5c/0b/a7924b7284f1a9b638bc89022a2ad7d68714fdda2658c727d160c3e17e74/botocore_stubs-1.40.58.tar.gz", hash = "sha256:c2703eccee8962b6b109817b126e1c485335a67efe574b99f2e30c82c0f25896", size = 42230, upload-time = "2025-10-23T20:26:59.683Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/f5/8a2874a9a426e98df3aa68da59467a8b691c3dfc793c7f1433bc3ea8b602/botocore_stubs-1.40.59.tar.gz", hash = "sha256:53611e55b64f7632ef9f7781d896f126926868cb182d181b95b15b28f8d777a8", size = 42219, upload-time = "2025-10-24T20:27:27.393Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/90/66/c88b19078a32bc737121d9334c4976d9141acc357daffc4cfcb153a9bdff/botocore_stubs-1.40.58-py3-none-any.whl", hash = "sha256:7c03b2b62b727808e65beccc96e75d21409d8b9165c8b0a3e1523386a8673b0a", size = 66541, upload-time = "2025-10-23T20:26:57.248Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/cc/951184f1862153bd15f15753d9340103e11f8f9836c37149a6bd9ccbeb5c/botocore_stubs-1.40.59-py3-none-any.whl", hash = "sha256:0cfbb0b03597cf1f33d4fc3a2f0ec4d92de5773177f858406f86f01f454d09ad", size = 66541, upload-time = "2025-10-24T20:27:25.231Z" },
 ]
 
 [[package]]
@@ -1925,8 +1925,8 @@ wheels = [
 
 [[package]]
 name = "x-ray-webhook"
-version = "1.0.0"
-source = { git = "https://github.com/rsky/x-ray-webhook-python.git#2e5f1d3ed40e761f5ab47da0871da8a0e4d14537" }
+version = "1.0.1"
+source = { git = "https://github.com/rsky/x-ray-webhook-python.git#945054343cad13fb5a737c26d3035ebfd6ab898d" }
 dependencies = [
     { name = "anyio" },
     { name = "distro" },
