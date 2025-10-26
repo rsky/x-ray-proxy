@@ -37,7 +37,7 @@ FLOW_MARK_X_RAY_REQUEST_HOOKED = "x_ray:request_hooked"
 
 class XRayAddon:
     _log_verbosity: int = logging.DEBUG
-    _disable_retry: bool = False
+    _enable_retry: bool = False
     _request_handlers: tuple[BaseRequestHandler, ...]
     _response_handlers: tuple[BaseResponseHandler, ...]
     _boto_session: aioboto3.Session
@@ -110,7 +110,7 @@ class XRayAddon:
             self.set_log_verbosity(config.log_verbosity)
             self.log("[Lifecycle] xrayproxy.x_ray.XRayAddon.configure")
 
-            self._disable_retry = config.disable_retry
+            self._enable_retry = config.enable_retry
 
             # configure the database engine
             # _db_engineはNoneになり得ないが、そのattributeは初回この下で初期化されるまで存在しない
@@ -170,12 +170,12 @@ class XRayAddon:
                 flow.marked = FLOW_MARK_X_RAY_REQUEST_HOOKED
                 return
 
-        if self._disable_retry:
-            # 上流へのリクエストはmitmproxyに任せる
-            pass
-        else:
+        if self._enable_retry:
             # mitmproxyは通信エラー時のリトライ機能を持たないので自前でリクエストする
             flow.response = await perform_request(self._http_session, request)
+        else:
+            # 上流へのリクエストはmitmproxyに任せる
+            pass
 
     async def response(self, flow: HTTPFlow) -> None:
         """
