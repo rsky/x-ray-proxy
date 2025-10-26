@@ -27,6 +27,7 @@ class Config:
     assets_dir: str
     database_path: str
     log_verbosity: int
+    disable_retry: bool
 
     x_ray: "XRayConfig"
     api_log: "ApiLogConfig"
@@ -47,10 +48,13 @@ def load_config(loader: SubConfigLoader, data: dict[str, Any]) -> Config:
 
     log_verbosity = parse_log_verbosity(data.get("log_verbosity"), "log_verbosity")
 
+    disable_retry = bool(data.get("disable_retry", False))
+
     return Config(
         assets_dir=assets_dir,
         database_path=database_path,
         log_verbosity=log_verbosity,
+        disable_retry=disable_retry,
         x_ray=create_x_ray_config(loader.get(data, "x_ray")),
         api_log=create_api_log_config(data.get("api_log", {})),
         resource=create_resource_config(loader.get(data, "resource")),
