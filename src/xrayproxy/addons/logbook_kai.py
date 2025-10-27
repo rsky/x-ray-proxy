@@ -91,6 +91,9 @@ def create_headers(req: Request, res: Response) -> list[tuple[str, str]]:
     return headers
 
 
+Tasks = tuple[asyncio.Task[None], ...]
+
+
 class LogbookKaiAddon:
     """
     mitmproxyが取得したレスポンスデータをlogbook-kai passive serverに送信するaddon。
@@ -102,8 +105,13 @@ class LogbookKaiAddon:
     """
 
     _queue: asyncio.Queue[PassiveServerParams]
-    _tasks: tuple[asyncio.Task[None], asyncio.Task[None]]
-    _logbook_port: int = LOGBOOK_DEFAULT_PORT
+    _tasks: Tasks
+    _logbook_port: int
+
+    def __init__(self) -> None:
+        self._queue = asyncio.Queue()
+        self._tasks = ()
+        self._logbook_port = LOGBOOK_DEFAULT_PORT
 
     def load(self, loader: Loader) -> None:
         loader.add_option(
@@ -119,18 +127,25 @@ class LogbookKaiAddon:
             help="PID file path.",
         )
 
-        self._queue = asyncio.Queue()
-        self._tasks = (
-            asyncio.create_task(self._worker(1)),
-            asyncio.create_task(self._worker(2)),
-        )
-
     def configure(self, updated: set[str]) -> None:
         if "logbook_port" in updated:
             self._logbook_port = ctx.options.logbook_port
 
+            if self._is_running():
+                # 実行中のworkerがあれば終了させる
+                asyncio.ensure_future(self._cleanup_tasks(self._tasks))
+
+            # 新しいlogbook_portに応じたworkerを開始
+            self._tasks = (
+                asyncio.create_task(self._worker(1)),
+                asyncio.create_task(self._worker(2)),
+            )
+
         if "pid_file" in updated:
             self._write_pid(ctx.options.pid_file)
+
+    def _is_running(self) -> bool:
+        return len(self._tasks) > 0
 
     @staticmethod
     def _write_pid(pid_file: str) -> None:
@@ -142,11 +157,20 @@ class LogbookKaiAddon:
         except OSError as e:
             logger.error(f"Failed to write PID file: {e}")
 
+    @staticmethod
+    async def _cleanup_tasks(tasks: Tasks) -> None:
+        if len(tasks) == 0:
+            return
+
+        for task in tasks:
+            task.cancel()
+
+        await asyncio.gather(*tasks, return_exceptions=True)
+
     async def done(self) -> None:
         await self._queue.join()
-        for task in self._tasks:
-            task.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        await self._cleanup_tasks(self._tasks)
+        self._tasks = ()
 
     def response(self, flow: HTTPFlow) -> None:
         request = flow.request
