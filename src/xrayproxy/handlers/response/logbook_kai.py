@@ -2,7 +2,6 @@ import asyncio
 from logging import getLogger
 
 from mitmproxy import ctx
-from mitmproxy.addonmanager import Loader
 
 from xrayproxy.config import Config
 from xrayproxy.handlers.base import BaseResponseHandler
@@ -19,21 +18,15 @@ class LogbookKaiConnectHandler(BaseResponseHandler):
     """
 
     _queue: asyncio.Queue[Context]
-    _tasks: list[asyncio.Task[None]]
-
+    _tasks: tuple[asyncio.Task[None], ...]
     _enabled: bool
     _client: logbook_kai.PassiveServerClient
 
     def __init__(self) -> None:
         super().__init__(logger)
-
-    def load(self, loader: Loader) -> None:
-        # プッシュは最大4並列
         self._queue = asyncio.Queue()
-        tasks = []
-        for _ in range(4):
-            tasks.append(asyncio.create_task(self.worker()))
-        self._tasks = tasks
+        self._tasks = (asyncio.create_task(self.worker()), asyncio.create_task(self.worker()))
+        self._enabled = False
 
     def configure(self, config: Config) -> None:
         super().configure(config)
@@ -52,10 +45,8 @@ class LogbookKaiConnectHandler(BaseResponseHandler):
 
     async def done(self) -> None:
         await self._queue.join()
-
         for task in self._tasks:
             task.cancel()
-
         await asyncio.gather(*self._tasks, return_exceptions=True)
         await self._client.dispose()
 

@@ -8,7 +8,6 @@ from logging import getLogger
 from pathlib import PurePosixPath
 from typing import Optional
 
-from mitmproxy.addonmanager import Loader
 from PIL import Image
 
 from xrayproxy.config import Config
@@ -154,30 +153,28 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
     画像等のリソースを処理する
     """
 
-    _save_mode: str = SaveMode.DEFAULT
-    _ship_graphic_versioning: bool = False
-    _is_sprite_url_escaped_full_path: bool = False
+    _save_mode: str
+    _ship_graphic_versioning: bool
+    _is_sprite_url_escaped_full_path: bool
 
     _store_queue: asyncio.Queue[StoreContext]
     _store_task: asyncio.Task[None]
     _upload_queue: asyncio.Queue[UploadContext]
-    _upload_tasks: list[asyncio.Task[None]]
+    _upload_tasks: tuple[asyncio.Task[None], ...]
 
     def __init__(self) -> None:
         super().__init__(logger)
+        self._save_mode = SaveMode.DEFAULT
+        self._ship_graphic_versioning = False
+        self._is_sprite_url_escaped_full_path = False
 
-    def load(self, loader: Loader) -> None:
         # 保存キューのタスクは1つだけ
         self._store_queue = asyncio.Queue()
         self._store_task = asyncio.create_task(self.store_worker())
 
         # アップロードは最大4並列にしてurllib3のコネクションプール数を超えないように
         self._upload_queue = asyncio.Queue()
-        upload_tasks = []
-        for i in range(4):
-            task = asyncio.create_task(self.upload_worker(f"worker-{i}"))
-            upload_tasks.append(task)
-        self._upload_tasks = upload_tasks
+        self._upload_tasks = tuple(asyncio.create_task(self.upload_worker(f"worker-{i}")) for i in range(4))
 
     def configure(self, config: Config) -> None:
         super().configure(config)
