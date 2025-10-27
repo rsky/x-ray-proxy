@@ -132,9 +132,12 @@ class LogbookKaiAddon:
         if "logbook_port" in updated:
             self._logbook_port = ctx.options.logbook_port
 
-            if self._is_running():
+            if len(self._tasks) > 0:
                 # 実行中のworkerがあれば終了させる
-                asyncio.ensure_future(self._cleanup_tasks(self._tasks))
+                old_tasks = self._tasks
+                for task in old_tasks:
+                    task.cancel()
+                asyncio.ensure_future(asyncio.gather(*old_tasks, return_exceptions=True))
 
             # 新しいlogbook_portに応じたworkerを開始
             self._tasks = (
@@ -144,9 +147,6 @@ class LogbookKaiAddon:
 
         if "pid_file" in updated:
             self._write_pid(ctx.options.pid_file)
-
-    def _is_running(self) -> bool:
-        return len(self._tasks) > 0
 
     @staticmethod
     def _write_pid(pid_file: str) -> None:
@@ -158,19 +158,12 @@ class LogbookKaiAddon:
         except OSError as e:
             logger.error(f"[logbook-kai-addon] Failed to write PID file: {e}")
 
-    @staticmethod
-    async def _cleanup_tasks(tasks: Tasks) -> None:
-        if len(tasks) == 0:
-            return
-
-        for task in tasks:
-            task.cancel()
-
-        await asyncio.gather(*tasks, return_exceptions=True)
-
     async def done(self) -> None:
         await self._queue.join()
-        await self._cleanup_tasks(self._tasks)
+
+        for task in self._tasks:
+            task.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks = ()
 
     def response(self, flow: HTTPFlow) -> None:
