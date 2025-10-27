@@ -36,18 +36,43 @@ FLOW_MARK_X_RAY_REQUEST_HOOKED = "x_ray:request_hooked"
 
 
 class XRayAddon:
-    _log_verbosity: int = logging.DEBUG
-    _enable_retry: bool = False
+    # settings
+    _log_verbosity: int
+    _enable_retry: bool
+    # response rewrite settings
+    _replace_ship_graphics_mapping: dict[int, ReplaceShipGraphicEntry]
+    _mute_mobile: bool
+    # handlers
     _request_handlers: tuple[BaseRequestHandler, ...]
     _response_handlers: tuple[BaseResponseHandler, ...]
+    # network
     _boto_session: aioboto3.Session
     _http_session: httpx.AsyncClient
+    # database
     _db_engine: sqlalchemy.Engine
     _db_conn: sqlalchemy.engine.Connection
-    _replace_ship_graphics_mapping: dict[int, ReplaceShipGraphicEntry]
-    _mute_mobile: bool = False
 
     def __init__(self) -> None:
+        self._log_verbosity = logging.DEBUG
+        self._enable_retry = False
+        self._replace_ship_graphics_mapping = {}
+        self._mute_mobile = False
+
+        botocore_session = aiobotocore.session.get_session()
+        botocore_session.set_default_client_config(
+            botocore.client.Config(
+                request_checksum_calculation="when_required",  # Avoid appending `aws-chunked`
+                response_checksum_validation="when_required",  # to Content-Encoding header.
+            )
+        )
+
+        self._boto_session = aioboto3.Session(botocore_session=botocore_session)
+        self._http_session = httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=httpx.Timeout(timeout=5.0, connect=10.0),
+            http2=True,
+        )
+
         self._request_handlers = (
             request_handlers.EnemyVoiceRequestHandler(),
             request_handlers.FaviconRequestHandler(),
@@ -60,6 +85,10 @@ class XRayAddon:
             response_handlers.MasterDataResponseHandler(),
             response_handlers.LogbookKaiConnectHandler(),
         )
+
+        for handler in self._request_handlers + self._response_handlers:
+            if isinstance(handler, mixin.ObjectStorageMixin):
+                handler.set_boto_session(self._boto_session)
 
     def set_log_verbosity(self, level: int) -> None:
         self._log_verbosity = level
@@ -80,26 +109,6 @@ class XRayAddon:
 
         loader.add_option("x_ray_config", str, "config/xrayproxy.toml", "x-ray-proxy config TOML file path")
 
-        botocore_session = aiobotocore.session.get_session()
-        botocore_session.set_default_client_config(
-            botocore.client.Config(
-                request_checksum_calculation="when_required",  # Avoid appending `aws-chunked`
-                response_checksum_validation="when_required",  # to Content-Encoding header.
-            )
-        )
-
-        self._boto_session = aioboto3.Session(botocore_session=botocore_session)
-        self._http_session = httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=httpx.Timeout(timeout=5.0, connect=10.0),
-            http2=True,
-        )
-
-        for handler in self._request_handlers + self._response_handlers:
-            handler.load(loader)
-            if isinstance(handler, mixin.ObjectStorageMixin):
-                handler.set_boto_session(self._boto_session)
-
     def configure(self, updated: set[str]) -> None:
         """
         See https://docs.mitmproxy.org/stable/api/events.html#LifecycleEvents.configure
@@ -112,7 +121,7 @@ class XRayAddon:
 
             self._enable_retry = config.enable_retry
 
-            # configure the database engine
+            # configure database
             # _db_engineはNoneになり得ないが、そのattributeは初回この下で初期化されるまで存在しない
             if hasattr(self, "_db_engine"):
                 self._db_engine.dispose()
@@ -128,7 +137,7 @@ class XRayAddon:
                 if isinstance(handler, mixin.DatabaseMixin):
                     handler.set_database_connection(self._db_conn)
 
-            # configure danger features
+            # configure response rewrite settings
             self._replace_ship_graphics_mapping = dict(config.rewrite.replace_ship_graphics.mapping)
             self._mute_mobile = config.rewrite.mute_mobile
 

@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Any, Optional
 
-from mitmproxy.addonmanager import Loader
 from mitmproxy.http import Request, Response
 
 from ..config import Config
@@ -65,13 +64,6 @@ class BaseHandler(ABC):
             self.log("api_token not found")
 
         return api_token
-
-    def load(self, loader: Loader) -> None:
-        """
-        XRayAddon.load()から呼ばれる
-        See https://docs.mitmproxy.org/stable/api/events.html#LifecycleEvents.load
-        """
-        pass
 
     def configure(self, config: Config) -> None:
         """
