@@ -32,6 +32,7 @@ HTTP_OK: int = 200
 BUFF_SIZE: int = 1024
 KEEP_ALIVE_TIMEOUT: int = 15
 MAX_ATTEMPTS: int = 3
+QUEUE_MAX_SIZE: int = 128
 
 logger = getLogger(__name__)
 
@@ -109,7 +110,7 @@ class LogbookKaiAddon:
     _logbook_port: int
 
     def __init__(self) -> None:
-        self._queue = asyncio.Queue()
+        self._queue = asyncio.Queue(maxsize=QUEUE_MAX_SIZE)
         self._tasks = ()
         self._logbook_port = LOGBOOK_DEFAULT_PORT
 
@@ -155,7 +156,7 @@ class LogbookKaiAddon:
             with open(pid_file, "w") as f:
                 f.write(str(os.getpid()))
         except OSError as e:
-            logger.error(f"Failed to write PID file: {e}")
+            logger.error(f"[logbook-kai-addon] Failed to write PID file: {e}")
 
     @staticmethod
     async def _cleanup_tasks(tasks: Tasks) -> None:
@@ -181,7 +182,15 @@ class LogbookKaiAddon:
 
         response = flow.response
         if response is not None and response.status_code == HTTP_OK:
-            self._queue.put_nowait(create_params(request, response))
+            try:
+                self._queue.put_nowait(create_params(request, response))
+            except (asyncio.QueueFull, asyncio.QueueShutDown) as e:
+                # キューが満杯もしくはシャットダウンされていたら何もしない
+                logger.warning(
+                    f"[logbook-kai-addon] Failed to queue {request.path}: "
+                    f"Queue {'full' if isinstance(e, asyncio.QueueFull) else 'shutdown'}"
+                )
+                pass
 
     async def _worker(self, task_no: int) -> None:
         while True:
@@ -189,10 +198,20 @@ class LogbookKaiAddon:
                 await self._keepalive_send_to_logbook()
             except asyncio.CancelledError:
                 # タスクがキャンセルされたら正常終了
-                logger.info(f"[mitmproxy-logbook-kai addon] Worker#{task_no} cancelled")
+                logger.info(f"[logbook-kai-addon worker#{task_no}] Task cancelled")
                 raise  # CancelledErrorを再送出して確実に終了
+            except asyncio.QueueShutDown:
+                # キューがシャットダウンされたらループを抜ける
+                break
+            except ConnectionRefusedError:
+                # 接続を拒否された場合はキューをシャットダウンしてループを抜ける
+                # logbook-kai以外から起動され、指定の host:port に接続できなかった場合が該当する
+                logger.warning(f"[logbook-kai-addon worker#{task_no}] Connection refused, shutting down queue")
+                self._queue.shutdown(immediate=True)
+                break
             except Exception:
-                logger.exception("[mitmproxy-logbook-kai addon] Unexpected error")
+                # 想定外の例外はログを出力して継続
+                logger.exception(f"[logbook-kai-addon worker#{task_no}] Unexpected error")
                 continue
 
     async def _keepalive_send_to_logbook(self) -> None:
@@ -218,14 +237,13 @@ class LogbookKaiAddon:
                             reason = "timeout" if result is SendResult.TIMEOUT else "error"
                             if params.attempts < MAX_ATTEMPTS:
                                 logger.info(
-                                    f"[mitmproxy-logbook-kai addon] Retrying {params.path} "
+                                    f"[logbook-kai-addon] Retrying {params.path} "
                                     f"(attempt {params.attempts + 1}/{MAX_ATTEMPTS}) due to connection {reason}"
                                 )
                                 await self._queue.put(params.clone_for_retry())
                             else:
                                 logger.warning(
-                                    "[mitmproxy-logbook-kai addon] Max attempts "
-                                    f"({MAX_ATTEMPTS}) exceeded for {params.path}"
+                                    f"[logbook-kai-addon] Max attempts ({MAX_ATTEMPTS}) exceeded for {params.path}"
                                 )
                             break
                 finally:
@@ -275,7 +293,7 @@ class AsyncKeepAliveClient:
             return SendResult.SUCCESS
 
         except (h11.RemoteProtocolError, ConnectionError) as e:
-            logger.error(f"[mitmproxy-logbook-kai addon] Connection error: {e}")
+            logger.error(f"[logbook-kai-addon] Connection error: {e}")
             if not request_sent:
                 return SendResult.MUST_RETRY
             else:
@@ -327,20 +345,20 @@ class AsyncKeepAliveClient:
     @staticmethod
     def verify_events(events: list[h11.Event]) -> bool:
         if not events:
-            logger.warning("[mitmproxy-logbook-kai addon] No response received")
+            logger.warning("[logbook-kai-addon] No response received")
             return False
 
         response = events[0]
         if not isinstance(response, h11.Response):
-            logger.error("[mitmproxy-logbook-kai addon] First event is not Response")
+            logger.error("[logbook-kai-addon] First event is not Response")
             return False
 
         if response.status_code != 200:
-            logger.warning(f"[mitmproxy-logbook-kai addon] Response code: {response.status_code}")
+            logger.warning(f"[logbook-kai-addon] Response code: {response.status_code}")
 
         last_event = events[-1]
         if isinstance(last_event, h11.ConnectionClosed):
-            logger.info("[mitmproxy-logbook-kai addon] Connection closed")
+            logger.info("[logbook-kai-addon] Connection closed")
             return False
 
         return True
