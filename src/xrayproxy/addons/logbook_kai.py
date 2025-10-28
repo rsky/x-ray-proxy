@@ -25,7 +25,7 @@ PATH_PREFIXES_TO_HANDLE: tuple[str, ...] = (
     "/kcs2/img/sally/",
 )
 
-LOGBOOK_HOST: str = "127.0.0.1"
+LOGBOOK_DEFAULT_HOST: str = "127.0.0.1"
 LOGBOOK_DEFAULT_PORT: int = 8888
 
 HTTP_OK: int = 200
@@ -55,42 +55,70 @@ class PassiveServerParams:
 
 
 def create_params(req: Request, res: Response) -> PassiveServerParams:
-    return PassiveServerParams(path=req.path, headers=create_headers(req, res), content=res.content)
+    return PassiveServerParams(path=req.path, headers=create_headers_by_mitmproxy(req, res), content=res.content)
 
 
-def create_headers(req: Request, res: Response) -> list[tuple[str, str]]:
+def create_headers_by_mitmproxy(req: Request, res: Response) -> list[tuple[str, str]]:
+    return create_headers(
+        request_host=req.host,
+        request_method=req.method,
+        request_content_type=req.headers.get("content-type"),
+        request_content=req.content,
+        response_content_type=res.headers.get("content-type"),
+        response_content=res.content,
+    )
+
+
+def create_headers(
+    request_host: str,
+    request_method: str,
+    request_content_type: Optional[str],
+    request_content: Optional[bytes],
+    response_content_type: Optional[str],
+    response_content: Optional[bytes],
+) -> list[tuple[str, str]]:
     # h11ではこれらの低水準なHTTPヘッダも自前で指定する必要がある
     headers = [
-        ("Host", req.host),
+        ("Host", request_host),
         # ("Connection", "keep-alive"),  # HTTP/1.1 ではデフォルトでKeep-Alive
         ("Keep-Alive", f"timeout={KEEP_ALIVE_TIMEOUT}, max=1000"),
     ]
 
-    req_content_type = req.headers.get("content-type")
-    res_content_type = res.headers.get("content-type")
-
     # Content-Type & Content-Length
-    if res.content is not None:
-        if res_content_type is not None:
-            headers.append(("Content-Type", res_content_type))
-        headers.append(("Content-Length", str(len(res.content))))
+    if response_content is not None:
+        if response_content_type is not None:
+            headers.append(("Content-Type", response_content_type))
+        headers.append(("Content-Length", str(len(response_content))))
 
     # Passive Modeカスタムヘッダ
-    headers.append(("X-Pasv-Request-Method", req.method))
+    headers.append(("X-Pasv-Request-Method", request_method))
 
     if (
-        req.content is not None
-        and req_content_type is not None
+        request_content is not None
+        and request_content_type is not None
         and (
-            req_content_type.startswith("text/")
-            or req_content_type in {"application/json", "application/x-www-form-urlencoded"}
+            request_content_type.startswith("text/")
+            or request_content_type in {"application/json", "application/x-www-form-urlencoded"}
         )
     ):
-        headers.append(("X-Pasv-Request-Content-Type", req_content_type))
-        header_safe_body = base64.b64encode(req.content).decode("utf-8")
+        headers.append(("X-Pasv-Request-Content-Type", request_content_type))
+        header_safe_body = base64.b64encode(request_content).decode("utf-8")
         headers.append(("X-Pasv-Request-Body", header_safe_body))
 
     return headers
+
+
+def check_path(path: str) -> bool:
+    return any(path.startswith(prefix) for prefix in PATH_PREFIXES_TO_HANDLE)
+
+
+def is_passive_mode_request(req: Request) -> bool:
+    return (
+        req.method == "POST"
+        and req.host in {"localhost", "127.0.0.1"}
+        and req.path.startswith("/pasv/")
+        and any(k.lower().startswith("x-pasv-") for k, _ in req.headers.items())  # type: ignore[no-untyped-call]
+    )
 
 
 class LogbookKaiAddon:
@@ -106,6 +134,7 @@ class LogbookKaiAddon:
     _queue: asyncio.Queue[PassiveServerParams]
     _clients: asyncio.Queue[Optional["AsyncKeepAliveClient"]]
     _tasks: tuple[asyncio.Task[None], ...]
+    _logbook_host: str
     _logbook_port: int
     _logbook_hostspec: str
 
@@ -113,10 +142,17 @@ class LogbookKaiAddon:
         self._queue = asyncio.Queue(maxsize=QUEUE_MAX_SIZE)
         self._clients = asyncio.Queue()
         self._tasks = ()
+        self._logbook_host = LOGBOOK_DEFAULT_HOST
         self._logbook_port = LOGBOOK_DEFAULT_PORT
         self._update_logbook_hostspec()
 
     def load(self, loader: Loader) -> None:
+        loader.add_option(
+            name="logbook_host",
+            typespec=str,
+            default=LOGBOOK_DEFAULT_HOST,
+            help="Host that logbook-kai is listening on.",
+        )
         loader.add_option(
             name="logbook_port",
             typespec=int,
@@ -131,6 +167,9 @@ class LogbookKaiAddon:
         )
 
     def configure(self, updated: set[str]) -> None:
+        if "logbook_host" in updated:
+            self._logbook_host = ctx.options.logbook_host
+
         if "logbook_port" in updated:
             self._logbook_port = ctx.options.logbook_port
 
@@ -139,8 +178,16 @@ class LogbookKaiAddon:
         if "pid_file" in updated:
             self._write_pid(ctx.options.pid_file)
 
+    def configure_connection(self, host: str, port: int) -> None:
+        """
+        x-ray-proxyのLogbookKaiConnectHandlerから接続設定を上書きする
+        """
+        self._logbook_host = host
+        self._logbook_port = port
+        self._update_logbook_hostspec()
+
     def _update_logbook_hostspec(self) -> None:
-        self._logbook_hostspec = f"{LOGBOOK_HOST}:{self._logbook_port}"
+        self._logbook_hostspec = f"{self._logbook_host}:{self._logbook_port}"
 
     def running(self) -> None:
         """
@@ -173,24 +220,45 @@ class LogbookKaiAddon:
             if client is not None:
                 await client.dispose()
 
+    def request(self, flow: HTTPFlow) -> None:
+        """
+        mitmproxyからlogbook-kaiへリクエストを転送し、クライアントにはダミーのレスポンスを返す
+        """
+        if not is_passive_mode_request(flow.request):
+            return
+
+        self.enqueue(
+            PassiveServerParams(
+                path=flow.request.path,
+                headers=flow.request.headers.items(),  # type: ignore[no-untyped-call]
+                content=flow.request.content,
+            )
+        )
+        flow.response = Response.make(200, b"OK", {"Content-Type": "text/plain"})
+
     def response(self, flow: HTTPFlow) -> None:
+        """
+        艦これサーバーへのリクエストに対するレスポンスをlogbook-kaiに送信する
+        """
         request = flow.request
         if not request.host.endswith(KANCOLLE_SERVER_SUFFIX):
             return
-        if not any(request.path.startswith(prefix) for prefix in PATH_PREFIXES_TO_HANDLE):
+        if not check_path(request.path):
             return
 
         response = flow.response
         if response is not None and response.status_code == HTTP_OK:
-            try:
-                self._queue.put_nowait(create_params(request, response))
-            except (asyncio.QueueFull, asyncio.QueueShutDown) as e:
-                # キューが満杯もしくはシャットダウンされていたら何もしない
-                logger.warning(
-                    f"[logbook-kai-addon] Failed to queue {request.path}: "
-                    f"Queue {'full' if isinstance(e, asyncio.QueueFull) else 'shutdown'}"
-                )
-                pass
+            self.enqueue(create_params(request, response))
+
+    def enqueue(self, params: PassiveServerParams) -> None:
+        try:
+            self._queue.put_nowait(params)
+        except (asyncio.QueueFull, asyncio.QueueShutDown) as e:
+            # キューが満杯もしくはシャットダウンされていたら何もしない
+            logger.warning(
+                f"[logbook-kai-addon] Failed to queue {params.path}: "
+                f"Queue {'full' if isinstance(e, asyncio.QueueFull) else 'shutdown'}"
+            )
 
     async def _get_client(self) -> Optional["AsyncKeepAliveClient"]:
         client = await self._clients.get()
@@ -206,7 +274,7 @@ class LogbookKaiAddon:
 
     async def _create_client(self) -> Optional["AsyncKeepAliveClient"]:
         try:
-            reader, writer = await asyncio.open_connection(LOGBOOK_HOST, self._logbook_port)
+            reader, writer = await asyncio.open_connection(self._logbook_host, self._logbook_port)
             logger.info(f"[logbook-kai-addon] Connected to {self._logbook_hostspec}")
             return AsyncKeepAliveClient(reader, writer, self._logbook_hostspec)
         except ConnectionRefusedError:
