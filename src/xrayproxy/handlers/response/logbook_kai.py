@@ -1,12 +1,15 @@
-import asyncio
 from logging import getLogger
 
 from mitmproxy import ctx
 
+from xrayproxy.addons.logbook_kai import (
+    LogbookKaiAddon,
+    PassiveServerParams,
+    check_path,
+    create_headers,
+)
 from xrayproxy.config import Config
 from xrayproxy.handlers.base import BaseResponseHandler
-from xrayproxy.lib import logbook_kai
-from xrayproxy.lib.decorators import error_logging
 from xrayproxy.lib.xray import Context
 
 logger = getLogger(__name__)
@@ -17,15 +20,12 @@ class LogbookKaiConnectHandler(BaseResponseHandler):
     logbook-kai passive serverへのデータ転送を行うResponseHandler
     """
 
-    _queue: asyncio.Queue[Context]
-    _tasks: tuple[asyncio.Task[None], ...]
     _enabled: bool
-    _client: logbook_kai.PassiveServerClient
+    _addon: LogbookKaiAddon
 
     def __init__(self) -> None:
         super().__init__(logger)
-        self._queue = asyncio.Queue()
-        self._tasks = (asyncio.create_task(self.worker()), asyncio.create_task(self.worker()))
+        self._addon = LogbookKaiAddon()
         self._enabled = False
 
     def configure(self, config: Config) -> None:
@@ -38,38 +38,25 @@ class LogbookKaiConnectHandler(BaseResponseHandler):
 
         verify_port(c.host, c.port)
 
-        # _clientはNoneになり得ないが、そのattributeは初回この下で初期化されるまで存在しない
-        if hasattr(self, "_client"):
-            asyncio.ensure_future(self._client.dispose())
-        self._client = logbook_kai.create_client(c)
+        self._addon.configure_connection(c.host, c.port)
+
+    def running(self) -> None:
+        self._addon.running()
 
     async def done(self) -> None:
-        await self._queue.join()
-        for task in self._tasks:
-            task.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
-        await self._client.dispose()
+        await self._addon.done()
 
     def accept(self, context: Context) -> bool:
-        return self._enabled and logbook_kai.check_path(context.request.path)
+        return self._enabled and check_path(context.request.path)
 
     async def response(self, context: Context) -> None:
-        self._queue.put_nowait(context)
-
-    async def worker(self) -> None:
-        while True:
-            context = await self._queue.get()
-            await self.worker_impl(context)
-            self._queue.task_done()
-
-    async def worker_impl(self, context: Context) -> None:
-        self.log(f"Sending {context.request.url} to logbook-kai")
-        await self.send_to_logbook_kai(context)
-
-    @error_logging(logger)
-    async def send_to_logbook_kai(self, context: Context) -> None:
-        await self._client.send(context)
-        self.log(f"Sent {context.request.url} to logbook-kai")
+        self._addon.enqueue(
+            PassiveServerParams(
+                path=context.request.path_with_query,
+                headers=create_headers_by_xray(context),
+                content=context.response.content,
+            )
+        )
 
 
 def verify_port(host: str, port: int) -> None:
@@ -99,3 +86,14 @@ def verify_port(host: str, port: int) -> None:
             raise RuntimeError(f"logbook_kai.port {port} is already used by mitmweb")
         else:
             logger.warning(f"logbook_kai.port {port} seems to be used by mitmweb")
+
+
+def create_headers_by_xray(context: Context) -> list[tuple[str, str]]:
+    return create_headers(
+        request_host=context.request.host,
+        request_method=context.request.method,
+        request_content_type=context.request.content_type,
+        request_content=context.request.content,
+        response_content_type=context.response.content_type,
+        response_content=context.response.content,
+    )

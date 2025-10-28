@@ -141,6 +141,10 @@ class XRayAddon:
             self._replace_ship_graphics_mapping = dict(config.rewrite.replace_ship_graphics.mapping)
             self._mute_mobile = config.rewrite.mute_mobile
 
+    def running(self) -> None:
+        for handler in self._request_handlers + self._response_handlers:
+            handler.running()
+
     async def done(self) -> None:
         """
         See https://docs.mitmproxy.org/stable/api/events.html#LifecycleEvents.done
