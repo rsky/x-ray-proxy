@@ -275,7 +275,7 @@ class LogbookKaiAddon:
     async def _create_client(self) -> Optional["AsyncKeepAliveClient"]:
         try:
             reader, writer = await asyncio.open_connection(self._logbook_host, self._logbook_port)
-            logger.info(f"[logbook-kai-addon] Connected to {self._logbook_hostspec}")
+            logger.debug(f"[logbook-kai-addon] Connected to {self._logbook_hostspec}")
             return AsyncKeepAliveClient(reader, writer, self._logbook_hostspec)
         except ConnectionRefusedError:
             logger.error(f"[logbook-kai-addon] Connection refused ({self._logbook_hostspec})")
@@ -375,7 +375,7 @@ class AsyncKeepAliveClient:
     async def dispose(self) -> None:
         self._writer.close()
         await self._writer.wait_closed()
-        logger.info(f"[logbook-kai-addon] Disconnected from {self._hostspec}")
+        logger.debug(f"[logbook-kai-addon] Disconnected from {self._hostspec}")
 
     async def send(self, params: PassiveServerParams) -> SendResult:
         request_sent = False
