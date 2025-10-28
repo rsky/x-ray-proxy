@@ -6,10 +6,10 @@ import asyncio
 import base64
 import enum
 import os
-import socket
 import time
 from dataclasses import dataclass
 from logging import getLogger
+from typing import Optional
 
 import h11
 from mitmproxy import ctx
@@ -33,6 +33,7 @@ BUFF_SIZE: int = 1024
 KEEP_ALIVE_TIMEOUT: int = 15
 MAX_ATTEMPTS: int = 3
 QUEUE_MAX_SIZE: int = 128
+CONNECTION_COUNT: int = 2
 
 logger = getLogger(__name__)
 
@@ -92,9 +93,6 @@ def create_headers(req: Request, res: Response) -> list[tuple[str, str]]:
     return headers
 
 
-Tasks = tuple[asyncio.Task[None], ...]
-
-
 class LogbookKaiAddon:
     """
     mitmproxyが取得したレスポンスデータをlogbook-kai passive serverに送信するaddon。
@@ -106,13 +104,17 @@ class LogbookKaiAddon:
     """
 
     _queue: asyncio.Queue[PassiveServerParams]
-    _tasks: Tasks
+    _clients: asyncio.Queue[Optional["AsyncKeepAliveClient"]]
+    _tasks: tuple[asyncio.Task[None], ...]
     _logbook_port: int
+    _logbook_hostspec: str
 
     def __init__(self) -> None:
         self._queue = asyncio.Queue(maxsize=QUEUE_MAX_SIZE)
+        self._clients = asyncio.Queue()
         self._tasks = ()
         self._logbook_port = LOGBOOK_DEFAULT_PORT
+        self._update_logbook_hostspec()
 
     def load(self, loader: Loader) -> None:
         loader.add_option(
@@ -132,21 +134,21 @@ class LogbookKaiAddon:
         if "logbook_port" in updated:
             self._logbook_port = ctx.options.logbook_port
 
-            if len(self._tasks) > 0:
-                # 実行中のworkerがあれば終了させる
-                old_tasks = self._tasks
-                for task in old_tasks:
-                    task.cancel()
-                asyncio.ensure_future(asyncio.gather(*old_tasks, return_exceptions=True))
-
-            # 新しいlogbook_portに応じたworkerを開始
-            self._tasks = (
-                asyncio.create_task(self._worker(1)),
-                asyncio.create_task(self._worker(2)),
-            )
+        self._update_logbook_hostspec()
 
         if "pid_file" in updated:
             self._write_pid(ctx.options.pid_file)
+
+    def _update_logbook_hostspec(self) -> None:
+        self._logbook_hostspec = f"{LOGBOOK_HOST}:{self._logbook_port}"
+
+    def running(self) -> None:
+        """
+        プロキシが起動完了したらクライアントのプールとレスポンスのコンシューマーを初期化する
+        """
+        for _ in range(CONNECTION_COUNT):
+            self._clients.put_nowait(None)
+        self._tasks = tuple(asyncio.create_task(self._worker(i + 1)) for i in range(CONNECTION_COUNT))
 
     @staticmethod
     def _write_pid(pid_file: str) -> None:
@@ -163,8 +165,13 @@ class LogbookKaiAddon:
 
         for task in self._tasks:
             task.cancel()
+
         await asyncio.gather(*self._tasks, return_exceptions=True)
-        self._tasks = ()
+
+        while not self._clients.empty():
+            client = self._clients.get_nowait()
+            if client is not None:
+                await client.dispose()
 
     def response(self, flow: HTTPFlow) -> None:
         request = flow.request
@@ -185,6 +192,27 @@ class LogbookKaiAddon:
                 )
                 pass
 
+    async def _get_client(self) -> Optional["AsyncKeepAliveClient"]:
+        client = await self._clients.get()
+        if client is None:
+            return await self._create_client()
+
+        if client.is_hostspec_changed(self._logbook_hostspec) or client.is_timed_out():
+            # host:portが変わっているか、タイムアウトしていたら新しいクライアントを作る
+            await client.dispose()
+            return await self._create_client()
+
+        return client
+
+    async def _create_client(self) -> Optional["AsyncKeepAliveClient"]:
+        try:
+            reader, writer = await asyncio.open_connection(LOGBOOK_HOST, self._logbook_port)
+            logger.info(f"[logbook-kai-addon] Connected to {self._logbook_hostspec}")
+            return AsyncKeepAliveClient(reader, writer, self._logbook_hostspec)
+        except ConnectionRefusedError:
+            logger.error(f"[logbook-kai-addon] Connection refused ({self._logbook_hostspec})")
+            return None
+
     async def _worker(self, task_no: int) -> None:
         while True:
             try:
@@ -196,70 +224,75 @@ class LogbookKaiAddon:
             except asyncio.QueueShutDown:
                 # キューがシャットダウンされたらループを抜ける
                 break
-            except ConnectionRefusedError:
-                # 接続を拒否された場合はキューをシャットダウンしてループを抜ける
-                # logbook-kai以外から起動され、指定の host:port に接続できなかった場合が該当する
-                logger.warning(f"[logbook-kai-addon worker#{task_no}] Connection refused, shutting down queue")
-                self._queue.shutdown(immediate=True)
-                break
             except Exception:
                 # 想定外の例外はログを出力して継続
                 logger.exception(f"[logbook-kai-addon worker#{task_no}] Unexpected error")
                 continue
 
     async def _keepalive_send_to_logbook(self) -> None:
-        """
-        このメソッドのwhileループをbreakすることで処理が呼び出し元のworker()に戻り、
-        worker()のwhileループで再度このメソッドが呼び出されることでコネクションが作り直される。
-        """
-        loop = asyncio.get_running_loop()
-        with socket.create_connection((LOGBOOK_HOST, self._logbook_port)) as sock:
-            sock.setblocking(False)
-            client = AsyncKeepAliveClient(loop, sock)
+        while True:
+            params = await self._queue.get()
+            client = await self._get_client()
+            try:
+                if client is None:
+                    # 接続エラーなどの理由でクライアントが作られていない場合は何もしない
+                    # この場合、リトライせずに意図的にデータを破棄する
+                    continue
 
-            while True:
-                params = await self._queue.get()
-                try:
-                    result = await client.send(params)
-                    match result:
-                        case SendResult.SUCCESS:
-                            pass
-                        case SendResult.MUST_DISCONNECT:
-                            break
-                        case SendResult.TIMEOUT | SendResult.MUST_RETRY:
-                            reason = "timeout" if result is SendResult.TIMEOUT else "error"
-                            if params.attempts < MAX_ATTEMPTS:
-                                logger.info(
-                                    f"[logbook-kai-addon] Retrying {params.path} "
-                                    f"(attempt {params.attempts + 1}/{MAX_ATTEMPTS}) due to connection {reason}"
-                                )
-                                await self._queue.put(params.clone_for_retry())
-                            else:
-                                logger.warning(
-                                    f"[logbook-kai-addon] Max attempts ({MAX_ATTEMPTS}) exceeded for {params.path}"
-                                )
-                            break
-                finally:
-                    self._queue.task_done()
+                result = await client.send(params)
+                match result:
+                    case SendResult.SUCCESS:
+                        pass
+                    case SendResult.MUST_DISCONNECT:
+                        await client.dispose()
+                        client = None  # 次に _get_client が呼ばれる際にクライアントが生成される
+                        continue
+                    case SendResult.MUST_RETRY:
+                        if params.attempts < MAX_ATTEMPTS:
+                            logger.info(
+                                f"[logbook-kai-addon] Retrying {params.path} "
+                                f"(attempt {params.attempts + 1}/{MAX_ATTEMPTS})"
+                            )
+                            await self._queue.put(params.clone_for_retry())
+                        else:
+                            logger.warning(
+                                f"[logbook-kai-addon] Max attempts ({MAX_ATTEMPTS}) exceeded for {params.path}"
+                            )
+                        await client.dispose()
+                        client = None  # リトライ時に _get_client が呼ばれる際にクライアントが生成される
+                        continue
+            finally:
+                # クライアントを再利用（またはリセット）する
+                # コネクションプーリングとしてキューを使用しているので、task_done() は不要
+                self._clients.put_nowait(client)
+                self._queue.task_done()
 
 
 class SendResult(enum.Enum):
     SUCCESS = enum.auto()
-    TIMEOUT = enum.auto()
     MUST_DISCONNECT = enum.auto()
     MUST_RETRY = enum.auto()
 
 
 class AsyncKeepAliveClient:
+    _conn: h11.Connection
+    _reader: asyncio.StreamReader
+    _writer: asyncio.StreamWriter
+    _hostspec: str
+    _timeout: int
+    _last_used_time: float
+
     def __init__(
         self,
-        loop: asyncio.AbstractEventLoop,
-        sock: socket.socket,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        hostspec: str,
         timeout: int = KEEP_ALIVE_TIMEOUT,
     ) -> None:
         self._conn = h11.Connection(our_role=h11.CLIENT)
-        self._loop = loop
-        self._sock = sock
+        self._reader = reader
+        self._writer = writer
+        self._hostspec = hostspec
         self._timeout = timeout
         self._last_used_time = time.time()
 
@@ -267,10 +300,16 @@ class AsyncKeepAliveClient:
         """タイムアウトしているかチェック"""
         return time.time() - self._last_used_time > self._timeout
 
-    async def send(self, params: PassiveServerParams) -> SendResult:
-        if self.is_timed_out():
-            return SendResult.TIMEOUT
+    def is_hostspec_changed(self, current_hostspec: str) -> bool:
+        """logbook-kaiのhost:portが__init__時から変化しているかチェック"""
+        return self._hostspec != current_hostspec
 
+    async def dispose(self) -> None:
+        self._writer.close()
+        await self._writer.wait_closed()
+        logger.info(f"[logbook-kai-addon] Disconnected from {self._hostspec}")
+
+    async def send(self, params: PassiveServerParams) -> SendResult:
         request_sent = False
         try:
             await self.send_request(params)
@@ -306,7 +345,8 @@ class AsyncKeepAliveClient:
     async def send_event(self, event: h11.Event) -> None:
         data = self._conn.send(event)
         if data is not None:
-            await self._loop.sock_sendall(self._sock, data)
+            self._writer.write(data)
+            await self._writer.drain()
 
     async def get_events(self) -> list[h11.Event]:
         events: list[h11.Event] = []
@@ -316,7 +356,7 @@ class AsyncKeepAliveClient:
 
             if event is h11.NEED_DATA:
                 # 追加データが必要な場合は読み込む
-                data = await self._loop.sock_recv(self._sock, BUFF_SIZE)
+                data = await self._reader.read(BUFF_SIZE)
                 if not data:
                     # 接続が閉じられた
                     break
