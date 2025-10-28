@@ -72,6 +72,13 @@ class BaseHandler(ABC):
         """
         self.set_log_verbosity(config.log_verbosity)
 
+    def running(self) -> None:
+        """
+        XRayAddon.running()から呼ばる
+        See https://docs.mitmproxy.org/stable/api/events.html#LifecycleEvents.running
+        """
+        pass
+
     async def done(self) -> None:
         """
         XRayAddon.done()から呼ばれる
