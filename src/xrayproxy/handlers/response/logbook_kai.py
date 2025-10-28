@@ -7,6 +7,7 @@ from xrayproxy.addons.logbook_kai import (
     PassiveServerParams,
     check_path,
     create_headers,
+    create_path,
 )
 from xrayproxy.config import Config
 from xrayproxy.handlers.base import BaseResponseHandler
@@ -52,7 +53,7 @@ class LogbookKaiConnectHandler(BaseResponseHandler):
     async def response(self, context: Context) -> None:
         self._addon.enqueue(
             PassiveServerParams(
-                path=context.request.path_with_query,
+                path=create_path(context.request.path_with_query),
                 headers=create_headers_by_xray(context),
                 content=context.response.content,
             )
