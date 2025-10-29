@@ -105,7 +105,9 @@ async def perform_request(session: httpx.AsyncClient, request: mitmproxy.http.Re
                         )
                     )
                 except httpx.TransportError as e:
-                    # Typically, `RemoteProtocolError: Server disconnected without sending a response.`
+                    # Typically, RemoteProtocolError:
+                    # `Server disconnected without sending a response.` on HTTP/1.1 or
+                    # `<ConnectionTerminated error_code:0, last_stream_id:x, additional_data:None>` on HTTP/2
                     err_cls = e.__class__.__name__
                     logger.info(f"{err_cls}: {e} url={req.url}, attempts={attempt.retry_state.attempt_number}")
                     if isinstance(e, httpx.TimeoutException):
