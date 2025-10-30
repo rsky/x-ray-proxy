@@ -39,6 +39,7 @@ class XRayAddon:
     # settings
     _log_verbosity: int
     _enable_retry: bool
+    _retry_api_only: bool
     # response rewrite settings
     _replace_ship_graphics_mapping: dict[int, ReplaceShipGraphicEntry]
     _mute_mobile: bool
@@ -55,6 +56,7 @@ class XRayAddon:
     def __init__(self) -> None:
         self._log_verbosity = logging.DEBUG
         self._enable_retry = False
+        self._retry_api_only = False
         self._replace_ship_graphics_mapping = {}
         self._mute_mobile = False
 
@@ -120,6 +122,7 @@ class XRayAddon:
             self.log("[Lifecycle] xrayproxy.x_ray.XRayAddon.configure")
 
             self._enable_retry = config.enable_retry
+            self._retry_api_only = config.retry_api_only
 
             # configure database
             # _db_engineはNoneになり得ないが、そのattributeは初回この下で初期化されるまで存在しない
@@ -183,12 +186,16 @@ class XRayAddon:
                 flow.marked = FLOW_MARK_X_RAY_REQUEST_HOOKED
                 return
 
-        if self._enable_retry:
-            # mitmproxyは通信エラー時のリトライ機能を持たないので自前でリクエストする
-            flow.response = await perform_request(self._http_session, request)
-        else:
+        if not self._enable_retry:
             # 上流へのリクエストはmitmproxyに任せる
-            pass
+            return
+
+        if self._retry_api_only and not request.path.startswith("/kcsapi/"):
+            # APIへのリクエストでないので、リトライしない
+            return
+
+        # mitmproxyは通信エラー時のリトライ機能を持たないので自前でリクエストする
+        flow.response = await perform_request(self._http_session, request)
 
     async def response(self, flow: HTTPFlow) -> None:
         """
