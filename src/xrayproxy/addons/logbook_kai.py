@@ -185,9 +185,7 @@ class LogbookKaiAddon:
         self._queue = asyncio.Queue(maxsize=QUEUE_MAX_SIZE)
         self._clients = asyncio.Queue()
         self._tasks = ()
-        self._logbook_host = LOGBOOK_DEFAULT_HOST
-        self._logbook_port = LOGBOOK_DEFAULT_PORT
-        self._update_logbook_hostspec()
+        self.configure_connection(LOGBOOK_DEFAULT_HOST, LOGBOOK_DEFAULT_PORT)
 
     def load(self, loader: Loader) -> None:
         loader.add_option(
@@ -210,26 +208,18 @@ class LogbookKaiAddon:
         )
 
     def configure(self, updated: set[str]) -> None:
-        if "logbook_host" in updated:
-            self._logbook_host = ctx.options.logbook_host
-
-        if "logbook_port" in updated:
-            self._logbook_port = ctx.options.logbook_port
-
-        self._update_logbook_hostspec()
+        if "logbook_host" in updated or "logbook_port" in updated:
+            self.configure_connection(ctx.options.logbook_host, ctx.options.logbook_port)
 
         if "pid_file" in updated:
             self._write_pid(ctx.options.pid_file)
 
     def configure_connection(self, host: str, port: int) -> None:
         """
-        x-ray-proxyのLogbookKaiConnectHandlerから接続設定を上書きする
+        configureから呼び出されるほか、x-ray-proxyのLogbookKaiConnectHandlerから接続設定を上書きする用途でも使われる
         """
         self._logbook_host = host
         self._logbook_port = port
-        self._update_logbook_hostspec()
-
-    def _update_logbook_hostspec(self) -> None:
         self._logbook_hostspec = f"{self._logbook_host}:{self._logbook_port}"
 
     def running(self) -> None:
