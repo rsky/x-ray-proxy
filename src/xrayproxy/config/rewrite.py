@@ -25,7 +25,7 @@ class RewriteConfig:
     dummy_favicon: bool
     cache_max_age: int
     mute_mobile: bool
-    mute_mobile_options: "MobileUserAgentOptions"
+    force_mobile_user_agent: "ForceMobileUserAgentConfig"
     mute_enemy_voice: "MuteEnemyVoiceConfig"
     replace_ship_graphics: "ReplaceShipGraphicConfig"
 
@@ -42,14 +42,14 @@ class MuteEnemyVoiceConfig:
 
 
 @dataclass(frozen=True, kw_only=True, slots=True, eq=False)
-class MobileUserAgentOptions:
+class ForceMobileUserAgentConfig:
     """
-    Optional Configuration of mute for mobile browsers
+    Configuration for forcing mobile mode
     """
 
     safari: bool
     firefox: bool
-    user_agent: Optional[str]
+    custom_user_agent: Optional[str]
 
 
 @dataclass(frozen=True, kw_only=True, slots=True, eq=False)
@@ -74,7 +74,6 @@ class ReplaceShipGraphicConfig:
 
 
 def create_rewrite_config(data: dict[str, Any]) -> RewriteConfig:
-    mute_mobile_user_agent = data.get("mute_mobile_user_agent")
     replace_ship_graphic_entries = tuple(
         create_replace_ship_graphic_entry(raw_entry) for raw_entry in data.get("replace_ship_graphic", [])
     )
@@ -83,11 +82,7 @@ def create_rewrite_config(data: dict[str, Any]) -> RewriteConfig:
         dummy_favicon=bool(data.get("dummy_favicon", False)),
         cache_max_age=int(data.get("cache_max_age", 14400)),
         mute_mobile=bool(data.get("mute_mobile", False)),
-        mute_mobile_options=MobileUserAgentOptions(
-            safari=bool(data.get("mute_mobile_safari", False)),
-            firefox=bool(data.get("mute_mobile_firefox", False)),
-            user_agent=str(mute_mobile_user_agent) if mute_mobile_user_agent else None,
-        ),
+        force_mobile_user_agent=create_force_mobile_user_agent_config(data.get("force_mobile", {})),
         mute_enemy_voice=create_mute_boss_voice_config(data.get("mute_enemy_voice", {})),
         replace_ship_graphics=ReplaceShipGraphicConfig(
             mapping={entry.from_ship_id: entry for entry in replace_ship_graphic_entries}
@@ -113,4 +108,14 @@ def create_replace_ship_graphic_entry(data: dict[str, Any]) -> ReplaceShipGraphi
         to_ship_id=int(to_ship_id) if to_ship_id is not None else from_ship_id,
         to_version=int(version) if version is not None else None,
         full_only=bool(data.get("full_only", False)),
+    )
+
+
+def create_force_mobile_user_agent_config(data: dict[str, Any]) -> ForceMobileUserAgentConfig:
+    custom_user_agent = data.get("custom_user_agent")
+
+    return ForceMobileUserAgentConfig(
+        safari=bool(data.get("safari", False)),
+        firefox=bool(data.get("firefox", False)),
+        custom_user_agent=str(custom_user_agent) if custom_user_agent else None,
     )

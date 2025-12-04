@@ -22,8 +22,11 @@ HTTPレスポンスを書き換えてゲームのプレイ感に影響を与え�
 [rewrite]
 cache_max_age = 3600
 mute_mobile = true
-mute_mobile_safari = true
-mute_mobile_firefox = true
+
+[rewrite.force_mobile]
+safari = true
+firefox = true
+# custom_user_agent = "Edg/"  # 任意のUser-Agent文字列を指定する例
 ```
 
 #### `mute_mobile` について
@@ -32,13 +35,13 @@ mute_mobile_firefox = true
 
 が、しかし、DMM Games側でこの条件に当てはまる場合にスマホ用Webサイトが表示され、「ご利用端末に対応していません」となり、艦これをプレイするにはデスクトップ(PC)用Webサイトに切り替えないといけません。
 
-そのため、現状で `mute_mobile` 機能を有効にするには、以下のいずれかの設定を行い、特定のUser-Agentをモバイル端末として扱う必要があります。
+そのため、現状で `mute_mobile` 機能を有効にするには、`[rewrite.force_mobile]` セクションで以下のいずれか（または複数）の設定を行い、特定のUser-Agentをモバイル端末として扱う必要があります。
 
-| 設定項目                 | 型      | デフォルト値 | 説明                                                                                           |
-| ------------------------ | ------- | ------------ | ---------------------------------------------------------------------------------------------- |
-| `mute_mobile_safari`     | boolean | `false`      | User-Agentに `Safari/` を含み、かつ `Chrome/`, `Edg/` を含まない場合、モバイル端末として扱う。 |
-| `mute_mobile_firefox`    | boolean | `false`      | User-Agentに `Firefox/` を含む場合、モバイル端末として扱う。                                   |
-| `mute_mobile_user_agent` | string  | なし         | User-Agentに含む場合、モバイル端末として扱う任意の文字列。例: `"Edg/"` (Microsoft Edge)        |
+| 設定項目            | 型      | デフォルト値 | 説明                                                                                           |
+| ------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------------- |
+| `safari`            | boolean | `false`      | User-Agentに `Safari/` を含み、かつ `Chrome/`, `Edg/` を含まない場合、モバイル端末として扱う。 |
+| `firefox`           | boolean | `false`      | User-Agentに `Firefox/` を含む場合、モバイル端末として扱う。                                   |
+| `custom_user_agent` | string  | なし         | User-Agentに含む場合、モバイル端末として扱う任意の文字列。例: `"Edg/"` (Microsoft Edge)        |
 
 ## `[rewrite.mute_enemy_voice]`
 

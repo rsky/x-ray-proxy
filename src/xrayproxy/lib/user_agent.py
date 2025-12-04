@@ -1,12 +1,12 @@
 import re
 from typing import Optional
 
-from xrayproxy.config.rewrite import MobileUserAgentOptions
+from xrayproxy.config.rewrite import ForceMobileUserAgentConfig
 
 MOBILE_USER_AGENT_PATTERN = re.compile("iPhone|iPad|Android")
 
 
-def is_mobile_user_agent(user_agent: str, options: Optional[MobileUserAgentOptions] = None) -> bool:
+def is_mobile_user_agent(user_agent: str, options: Optional[ForceMobileUserAgentConfig] = None) -> bool:
     if MOBILE_USER_AGENT_PATTERN.search(user_agent) is not None:
         return True
 
@@ -19,7 +19,7 @@ def is_mobile_user_agent(user_agent: str, options: Optional[MobileUserAgentOptio
     if options.firefox and "Firefox/" in user_agent:
         return True
 
-    if options.user_agent is not None and options.user_agent in user_agent:
+    if options.custom_user_agent and options.custom_user_agent in user_agent:
         return True
 
     return False

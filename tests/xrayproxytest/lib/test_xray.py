@@ -170,5 +170,5 @@ class XRayTestCase(unittest.TestCase):
         self.assertDictEqual(asdict(payload), expected)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
