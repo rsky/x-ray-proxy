@@ -105,8 +105,8 @@ def create_replace_ship_graphic_entry(data: dict[str, Any]) -> ReplaceShipGraphi
 
     return ReplaceShipGraphicEntry(
         from_ship_id=from_ship_id,
-        to_ship_id=int(to_ship_id) if to_ship_id is not None else from_ship_id,
-        to_version=int(version) if version is not None else None,
+        to_ship_id=int(to_ship_id) if to_ship_id else from_ship_id,
+        to_version=int(version) if version else None,
         full_only=bool(data.get("full_only", False)),
     )
 
