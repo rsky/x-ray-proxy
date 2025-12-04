@@ -17,6 +17,7 @@ from mitmproxy.addonmanager import Loader
 from mitmproxy.http import HTTPFlow, Response
 
 from xrayproxy.config import ReplaceShipGraphicEntry, load_config_toml
+from xrayproxy.config.rewrite import ForceMobileUserAgentConfig
 from xrayproxy.generated.sqlc.master_data import Querier
 from xrayproxy.handlers import mixin, response_rewriter
 from xrayproxy.handlers import request as request_handlers
@@ -59,6 +60,7 @@ class XRayAddon:
         self._retry_api_only = False
         self._replace_ship_graphics_mapping = {}
         self._mute_mobile = False
+        self._force_mobile_user_agent: Optional[ForceMobileUserAgentConfig] = None
 
         botocore_session = aiobotocore.session.get_session()
         botocore_session.set_default_client_config(
@@ -143,6 +145,7 @@ class XRayAddon:
             # configure response rewrite settings
             self._replace_ship_graphics_mapping = dict(config.rewrite.replace_ship_graphics.mapping)
             self._mute_mobile = config.rewrite.mute_mobile
+            self._force_mobile_user_agent = config.rewrite.force_mobile_user_agent
 
     def running(self) -> None:
         for handler in self._request_handlers + self._response_handlers:
@@ -226,7 +229,7 @@ class XRayAddon:
         if (
             flow.request.path == OPTION_SETTING_API_PATH
             and self._mute_mobile
-            and is_mobile_user_agent(flow.request.headers.get("user-agent", ""))
+            and is_mobile_user_agent(flow.request.headers.get("user-agent", ""), self._force_mobile_user_agent)
         ):
             response_rewriter.force_mute(flow)
 
