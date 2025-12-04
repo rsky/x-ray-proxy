@@ -25,7 +25,7 @@ class RewriteConfig:
     dummy_favicon: bool
     cache_max_age: int
     mute_mobile: bool
-    mute_mobile_options: "MuteMobileOptions"
+    mute_mobile_options: "MobileUserAgentOptions"
     mute_enemy_voice: "MuteEnemyVoiceConfig"
     replace_ship_graphics: "ReplaceShipGraphicConfig"
 
@@ -42,7 +42,7 @@ class MuteEnemyVoiceConfig:
 
 
 @dataclass(frozen=True, kw_only=True, slots=True, eq=False)
-class MuteMobileOptions:
+class MobileUserAgentOptions:
     """
     Optional Configuration of mute for mobile browsers
     """
@@ -83,7 +83,7 @@ def create_rewrite_config(data: dict[str, Any]) -> RewriteConfig:
         dummy_favicon=bool(data.get("dummy_favicon", False)),
         cache_max_age=int(data.get("cache_max_age", 14400)),
         mute_mobile=bool(data.get("mute_mobile", False)),
-        mute_mobile_options=MuteMobileOptions(
+        mute_mobile_options=MobileUserAgentOptions(
             safari=bool(data.get("mute_mobile_safari", False)),
             firefox=bool(data.get("mute_mobile_firefox", False)),
             user_agent=str(mute_mobile_user_agent) if mute_mobile_user_agent else None,
