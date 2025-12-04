@@ -25,6 +25,7 @@ class RewriteConfig:
     dummy_favicon: bool
     cache_max_age: int
     mute_mobile: bool
+    force_mobile_user_agent: "ForceMobileUserAgentConfig"
     mute_enemy_voice: "MuteEnemyVoiceConfig"
     replace_ship_graphics: "ReplaceShipGraphicConfig"
 
@@ -38,6 +39,17 @@ class MuteEnemyVoiceConfig:
     enabled: bool
     ship_ids: tuple[str, ...]
     voice_types: tuple[str, ...]
+
+
+@dataclass(frozen=True, kw_only=True, slots=True, eq=False)
+class ForceMobileUserAgentConfig:
+    """
+    Configuration for forcing mobile mode
+    """
+
+    safari: bool
+    firefox: bool
+    custom_user_agent: Optional[str]
 
 
 @dataclass(frozen=True, kw_only=True, slots=True, eq=False)
@@ -70,6 +82,7 @@ def create_rewrite_config(data: dict[str, Any]) -> RewriteConfig:
         dummy_favicon=bool(data.get("dummy_favicon", False)),
         cache_max_age=int(data.get("cache_max_age", 14400)),
         mute_mobile=bool(data.get("mute_mobile", False)),
+        force_mobile_user_agent=create_force_mobile_user_agent_config(data.get("force_mobile", {})),
         mute_enemy_voice=create_mute_boss_voice_config(data.get("mute_enemy_voice", {})),
         replace_ship_graphics=ReplaceShipGraphicConfig(
             mapping={entry.from_ship_id: entry for entry in replace_ship_graphic_entries}
@@ -92,7 +105,17 @@ def create_replace_ship_graphic_entry(data: dict[str, Any]) -> ReplaceShipGraphi
 
     return ReplaceShipGraphicEntry(
         from_ship_id=from_ship_id,
-        to_ship_id=int(to_ship_id) if to_ship_id is not None else from_ship_id,
-        to_version=int(version) if version is not None else None,
+        to_ship_id=int(to_ship_id) if to_ship_id else from_ship_id,
+        to_version=int(version) if version else None,
         full_only=bool(data.get("full_only", False)),
+    )
+
+
+def create_force_mobile_user_agent_config(data: dict[str, Any]) -> ForceMobileUserAgentConfig:
+    custom_user_agent = data.get("custom_user_agent")
+
+    return ForceMobileUserAgentConfig(
+        safari=bool(data.get("safari", False)),
+        firefox=bool(data.get("firefox", False)),
+        custom_user_agent=str(custom_user_agent) if custom_user_agent else None,
     )
