@@ -6,7 +6,7 @@ from xrayproxy.config.rewrite import MobileUserAgentOptions
 MOBILE_USER_AGENT_PATTERN = re.compile("iPhone|iPad|Android")
 
 
-def is_mobile_user_agent(user_agent: str, options: Optional[MobileUserAgentOptions]) -> bool:
+def is_mobile_user_agent(user_agent: str, options: Optional[MobileUserAgentOptions] = None) -> bool:
     if MOBILE_USER_AGENT_PATTERN.search(user_agent) is not None:
         return True
 
