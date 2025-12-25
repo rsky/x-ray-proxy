@@ -40,7 +40,9 @@ cp config/examples/xrayproxy-docker.toml config/xrayproxy-docker.toml
 
 ## 4. コンテナをビルド
 
-初回起動の前やバージョンアップの際、または設定ファイルを編集した後は `docker compose build` でDockerコンテナをビルドしてください。[^3]
+初回起動の前やx-ray-proxyを更新した後は `docker compose build` でDockerコンテナをビルドしてください。[^3]
+
+3で編集した設定ファイルもコンテナにコピーされますが、設定ファイルをマウントする設定になっているので設定変更のみであればコンテナの再起動で反映されます。
 
 ```console
 docker compose build
@@ -187,6 +189,6 @@ docker compose -f compose-proxy-only.yaml up -d
 
 [^1]: 設定ファイルの詳細は[設定ファイルのドキュメント](../config/index.md)を参照してください。
 
-[^2]: `config/xrayproxy-docker.toml`が存在しない場合、`config/examples/xrayproxy-docker.toml`が読み込まれます。
+[^2]: *config/xrayproxy-docker.toml* が存在しない場合、*config/examples/xrayproxy-docker.toml* が読み込まれます。
 
-[^3]: バージョンアップや設定ファイルの変更がある場合は、コンテナ停止→ビルド→再起動を行わないと変更が反映されません。
+[^3]: x-ray-proxyのバージョンアップ時はコンテナの再ビルドが必要です。設定ファイル（config/xrayproxy-docker.toml）の変更のみであれば、コンテナの再起動だけで反映されます。

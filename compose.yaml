@@ -46,5 +46,6 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/var/lib/x-ray-proxy/data
+      - ./config/xrayproxy-docker.toml:/var/lib/x-ray-proxy/config/xrayproxy.toml:ro
     extra_hosts:
       - host.docker.internal:host-gateway
