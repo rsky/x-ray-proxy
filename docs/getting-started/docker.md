@@ -177,6 +177,14 @@ exit
 
 外部リンク: [mc ilmコマンドのドキュメント](https://min.io/docs/minio/linux/reference/minio-mc/mc-ilm.html)
 
+### MinIOを使わず、リモートのオブジェクトストレージに接続する
+
+*config/xrayproxy-docker.toml* の `[storage]` テーブルで適宜設定し、x-ray-proxyのみ起動するcompose設定ファイルを使います。
+
+```console
+docker compose -f compose-proxy-only.yaml up -d
+```
+
 [^1]: 設定ファイルの詳細は[設定ファイルのドキュメント](../config/index.md)を参照してください。
 
 [^2]: `config/xrayproxy-docker.toml`が存在しない場合、`config/examples/xrayproxy-docker.toml`が読み込まれます。
