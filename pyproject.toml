@@ -7,18 +7,18 @@ authors = [
 ]
 dependencies = [
     "aioboto3>=15.5.0",
-    "alembic>=1.17.2",
+    "alembic>=1.18.1",
     "Brotli>=1.2.0",
     "httpx[http2,brotli,zstd]>=0.28.1",
     "mitmproxy>=12.2.1",
-    "pillow>=12.0.0",
+    "pillow>=12.1.0",
     "SQLAlchemy>=2.0.45",
     "tenacity>=9.1.2",
-    "x-ray-webhook==1.0.6",
+    "x-ray-webhook==1.0.7",
     "zstandard>=0.25.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.13"
+requires-python = ">= 3.14"
 
 [dependency-groups]
 dev = [
@@ -29,8 +29,8 @@ dev = [
     "mdformat-gfm-alerts>=2.0.0",
     "mdformat-tables>=1.0.0",
     "mypy>=1.19.1",
-    "poethepoet>=0.39.0",
-    "ruff>=0.14.10",
+    "poethepoet>=0.40.0",
+    "ruff>=0.14.11",
     "types-aioboto3[s3]>=15.5.0",
 ]
 
