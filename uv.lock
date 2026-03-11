@@ -1748,7 +1748,7 @@ requires-dist = [
     { name = "httpx", extras = ["http2", "brotli", "zstd"], specifier = ">=0.28.1" },
     { name = "mitmproxy", specifier = ">=12.2.1" },
     { name = "pillow", specifier = ">=12.1.1" },
-    { name = "sqlalchemy", specifier = ">=2.0.46" },
+    { name = "sqlalchemy", specifier = ">=2.0.48" },
     { name = "tenacity", specifier = ">=9.1.4" },
     { name = "x-ray-webhook", git = "https://github.com/rsky/x-ray-webhook-python.git" },
     { name = "zstandard", specifier = ">=0.25.0" },
@@ -1763,8 +1763,8 @@ dev = [
     { name = "mdformat-gfm-alerts", specifier = ">=2.0.0" },
     { name = "mdformat-tables", specifier = ">=1.0.0" },
     { name = "mypy", specifier = ">=1.19.1" },
-    { name = "poethepoet", specifier = ">=0.41.0" },
-    { name = "ruff", specifier = ">=0.15.1" },
+    { name = "poethepoet", specifier = ">=0.42.1" },
+    { name = "ruff", specifier = ">=0.15.5" },
     { name = "types-aioboto3", extras = ["s3"], specifier = ">=15.5.0" },
 ]
 

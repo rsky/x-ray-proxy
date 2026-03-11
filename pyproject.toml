@@ -12,9 +12,9 @@ dependencies = [
     "httpx[http2,brotli,zstd]>=0.28.1",
     "mitmproxy>=12.2.1",
     "pillow>=12.1.1",
-    "SQLAlchemy>=2.0.46",
+    "SQLAlchemy>=2.0.48",
     "tenacity>=9.1.4",
-    "x-ray-webhook==1.2.1",
+    "x-ray-webhook==1.2.2",
     "zstandard>=0.25.0",
 ]
 readme = "README.md"
@@ -29,8 +29,8 @@ dev = [
     "mdformat-gfm-alerts>=2.0.0",
     "mdformat-tables>=1.0.0",
     "mypy>=1.19.1",
-    "poethepoet>=0.41.0",
-    "ruff>=0.15.1",
+    "poethepoet>=0.42.1",
+    "ruff>=0.15.5",
     "types-aioboto3[s3]>=15.5.0",
 ]
 
