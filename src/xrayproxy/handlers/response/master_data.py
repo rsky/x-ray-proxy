@@ -13,7 +13,13 @@ from xrayproxy.generated.sqlc.master_data import (
     SaveShipParams,
 )
 from xrayproxy.handlers.base import BaseResponseHandler
-from xrayproxy.handlers.mixin import CompressionMethodChoices, DatabaseMixin, JsonMixin, ObjectStorageMixin
+from xrayproxy.handlers.mixin import (
+    DEFAULT_COMPRESSION_METHOD,
+    CompressionMethodChoices,
+    DatabaseMixin,
+    JsonMixin,
+    ObjectStorageMixin,
+)
 from xrayproxy.lib.decorators import error_logging
 from xrayproxy.lib.xray import Context, create_webhook_client
 
@@ -61,9 +67,7 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
         # マスターデータはサーバー毎のものも残しつつ、共通のパスに保存する
         object_key = f"master_data/{host}/api_start2.json"
         copy_object_key = "master_data/api_start2.json"
-        await self.upload_data(
-            object_key, copy_object_key, json_str, context.request.url, context.respond_at_millis, ["zstd", "br"]
-        )
+        await self.upload_data(object_key, copy_object_key, json_str, context.request.url, context.respond_at_millis)
 
     @error_logging(logger)
     async def upload_data(
@@ -73,22 +77,21 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
         json_str: str,
         url: str,
         timestamp_in_millis: int,
-        compression_methods: list[CompressionMethodChoices],
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
     ) -> None:
         updated_resource_keys = []
 
         async with self.create_s3_client() as s3:
-            for compression in compression_methods:
-                (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression)
-                copy_key = key.replace(object_key, copy_object_key)
-                if self._s3_allow_public_access:
-                    s3_system_metadata["ACL"] = "public-read"
+            (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression=compression)
+            copy_key = key.replace(object_key, copy_object_key)
+            if self._s3_allow_public_access:
+                s3_system_metadata["ACL"] = "public-read"
 
-                if await self.put_object_if_none_match(s3, key, body, url, **s3_system_metadata):
-                    updated_resource_keys.append(key)
+            if await self.put_object_if_none_match(s3, key, body, url, **s3_system_metadata):
+                updated_resource_keys.append(key)
 
-                if await self.put_object_if_none_match(s3, copy_key, body, url, **s3_system_metadata):
-                    updated_resource_keys.append(copy_key)
+            if await self.put_object_if_none_match(s3, copy_key, body, url, **s3_system_metadata):
+                updated_resource_keys.append(copy_key)
 
         if len(updated_resource_keys) > 0:
             await self._notify_resource_updates(updated_resource_keys, timestamp_in_millis)

@@ -9,6 +9,7 @@ from xrayproxy.config import Config
 from xrayproxy.generated.sqlc.api_log import Querier, SaveApiLogParams
 from xrayproxy.handlers.base import BaseResponseHandler
 from xrayproxy.handlers.mixin import (
+    DEFAULT_COMPRESSION_METHOD,
     CompressionMethodChoices,
     DatabaseMixin,
     JsonMixin,
@@ -149,12 +150,11 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
         if json_data is None:
             return
 
-        compression: CompressionMethodChoices = "zstd"
         tasks = []
 
         member_id, request_params = self.parse_request(context.request)
         object_key = self.make_object_key(context.request.path, context.respond_at)
-        log_key = None if object_key is None else self.compressed_json_object_key(object_key, compression)
+        log_key = None if object_key is None else self.compressed_json_object_key(object_key)
 
         payload: Optional[ApiDataPayload] = None
         if need_to_send(context.request.path):
@@ -169,9 +169,7 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
                 extra_metadata["x-ray-member-id"] = str(member_id)
             if request_params is not None:
                 extra_metadata["x-ray-request-body"] = urllib.parse.urlencode(request_params)
-            tasks.append(
-                self.upload_data(object_key, json_str, context.request.url, extra_metadata, compression, payload)
-            )
+            tasks.append(self.upload_data(object_key, json_str, context.request.url, extra_metadata, payload))
 
             params = None
             if context.request.method == "GET" and context.request.query:
@@ -218,10 +216,10 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
         json_str: str,
         url: str,
         extra_metadata: dict[str, Any],
-        compression: CompressionMethodChoices,
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
         payload: Optional[ApiDataPayload] = None,
     ) -> None:
-        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression)
+        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression=compression)
         if self._s3_allow_public_access:
             s3_system_metadata["ACL"] = "public-read"
         async with self.create_s3_client() as s3:

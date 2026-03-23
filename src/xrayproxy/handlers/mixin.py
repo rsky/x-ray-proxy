@@ -23,6 +23,7 @@ logger = getLogger(__name__)
 
 
 CompressionMethodChoices = Literal["br", "zstd", "none"]
+DEFAULT_COMPRESSION_METHOD: CompressionMethodChoices = "zstd"
 
 
 class DatabaseMixin:
@@ -84,7 +85,7 @@ class JsonMixin:
 
     @classmethod
     def make_upload_data(
-        cls, object_key: str, json_str: str, compression: CompressionMethodChoices
+        cls, object_key: str, json_str: str, compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD
     ) -> tuple[str, bytes, dict[str, Any]]:
         """
         JSONを圧縮してS3(R2)にアップロードするためのデータを作成する
@@ -107,7 +108,10 @@ class JsonMixin:
         return key, body, s3_system_metadata
 
     @staticmethod
-    def compressed_json_object_key(object_key: str, compression: CompressionMethodChoices) -> str:
+    def compressed_json_object_key(
+        object_key: str,
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
+    ) -> str:
         if object_key.endswith(".json"):
             if compression == "br":
                 return object_key + ".br"
