@@ -84,7 +84,7 @@ class JsonMixin:
 
     @classmethod
     def make_upload_data(
-        cls, object_key: str, json_str: str, compression: CompressionMethodChoices = "br"
+        cls, object_key: str, json_str: str, compression: CompressionMethodChoices = "zstd"
     ) -> tuple[str, bytes, dict[str, Any]]:
         """
         JSONを圧縮してS3(R2)にアップロードするためのデータを作成する
@@ -107,7 +107,7 @@ class JsonMixin:
         return key, body, s3_system_metadata
 
     @staticmethod
-    def compressed_json_object_key(object_key: str, compression: CompressionMethodChoices = "br") -> str:
+    def compressed_json_object_key(object_key: str, compression: CompressionMethodChoices = "zstd") -> str:
         if object_key.endswith(".json"):
             if compression == "br":
                 return object_key + ".br"
