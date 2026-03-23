@@ -169,7 +169,7 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
                 extra_metadata["x-ray-member-id"] = str(member_id)
             if request_params is not None:
                 extra_metadata["x-ray-request-body"] = urllib.parse.urlencode(request_params)
-            tasks.append(self.upload_data(object_key, json_str, context.request.url, extra_metadata, payload))
+            tasks.append(self.upload_data(object_key, json_str, context.request.url, extra_metadata, payload=payload))
 
             params = None
             if context.request.method == "GET" and context.request.query:
