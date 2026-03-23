@@ -160,7 +160,7 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
         if need_to_send(context.request.path):
             payload = create_payload(context, member_id, json_data, log_bucket=self._bucket, log_key=log_key)
 
-        if log_key:
+        if object_key and log_key:
             # APIログをストレージに保存し、データベースにも記録する
             # 通知が必要ならストレージに保存した後にWebhookに送信する
             json_str = self.encode_json(json_data)
