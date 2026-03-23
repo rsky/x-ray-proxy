@@ -9,6 +9,7 @@ from xrayproxy.lib.xray import Context
 
 from ..base import BaseResponseHandler
 from ..mixin import (
+    CompressionMethodChoices,
     DatabaseMixin,
     JsonMixin,
     ObjectStorageMixin,
@@ -79,7 +80,7 @@ class MemberInfoResponseHandler(
             self.set_member_id(api_token, member_id)
 
         json_str = self.encode_json(data)
-        await self.upload_data(object_key, json_str, context.request.url, context.respond_at_millis)
+        await self.upload_data(object_key, json_str, context.request.url, context.respond_at_millis, ["zstd", "br"])
 
         if path == REQUIRE_INFO_API_PATH:
             # マスターデータをユーザーごとのパスにコピーする特殊処理
@@ -87,7 +88,9 @@ class MemberInfoResponseHandler(
             # ユーザーIDを取得できないため、このタイミングでコピーする
             master_data_src_key = f"master_data/{context.request.host}/api_start2.json"
             master_data_dst_key = f"member/{member_id}/api_start2.json"
-            await self.copy_master_data(master_data_src_key, master_data_dst_key, context.respond_at_millis)
+            await self.copy_master_data(
+                master_data_src_key, master_data_dst_key, context.respond_at_millis, ["zstd", "br"]
+            )
 
         if path == PORT_API_PATH:
             # 母港APIレスポンスからニックネームを取得して提督ID、鎮守府サーバーのホスト名とともにWebhookに送信する
@@ -114,29 +117,49 @@ class MemberInfoResponseHandler(
             return None, False
 
     @error_logging(logger)
-    async def upload_data(self, object_key: str, json_str: str, url: str, timestamp_in_millis: int) -> None:
-        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression="zstd")
-        if self._s3_allow_public_access:
-            s3_system_metadata["ACL"] = "public-read"
+    async def upload_data(
+        self,
+        object_key: str,
+        json_str: str,
+        url: str,
+        timestamp_in_millis: int,
+        compression_methods: list[CompressionMethodChoices],
+    ) -> None:
+        updated_resource_keys = []
 
         async with self.create_s3_client() as s3:
-            await self.put_object(s3, key, body, url, **s3_system_metadata)
+            for compression in compression_methods:
+                (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression)
+                if self._s3_allow_public_access:
+                    s3_system_metadata["ACL"] = "public-read"
+
+                await self.put_object(s3, key, body, url, **s3_system_metadata)
+                updated_resource_keys.append(key)
+
+        for key in updated_resource_keys:
             await self.notify_resource_update(key, timestamp_in_millis)
 
     @error_logging(logger)
-    async def copy_master_data(self, src_key: str, dst_key: str, timestamp_in_millis: int) -> None:
-        compressed_src_key = self.compressed_json_object_key(src_key, compression="zstd")
-        compressed_dst_key = self.compressed_json_object_key(dst_key, compression="zstd")
-
-        s3_system_metadata = {}
-        if self._s3_allow_public_access:
-            s3_system_metadata["ACL"] = "public-read"
-
+    async def copy_master_data(
+        self,
+        src_key: str,
+        dst_key: str,
+        timestamp_in_millis: int,
+        compression_methods: list[CompressionMethodChoices],
+    ) -> None:
         async with self.create_s3_client() as s3:
-            if await self.copy_object_if_none_match(
-                s3, compressed_src_key, compressed_dst_key, None, None, **s3_system_metadata
-            ):
-                await self.notify_resource_update(compressed_dst_key, timestamp_in_millis)
+            for compression in compression_methods:
+                compressed_src_key = self.compressed_json_object_key(src_key, compression)
+                compressed_dst_key = self.compressed_json_object_key(dst_key, compression)
+
+                s3_system_metadata = {}
+                if self._s3_allow_public_access:
+                    s3_system_metadata["ACL"] = "public-read"
+
+                if await self.copy_object_if_none_match(
+                    s3, compressed_src_key, compressed_dst_key, None, None, **s3_system_metadata
+                ):
+                    await self.notify_resource_update(compressed_dst_key, timestamp_in_millis)
 
     @error_logging(logger)
     async def _send_member_info_to_webhook(self, member_id: int, nickname: str, host: str) -> None:

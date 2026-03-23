@@ -84,7 +84,7 @@ class JsonMixin:
 
     @classmethod
     def make_upload_data(
-        cls, object_key: str, json_str: str, compression: CompressionMethodChoices = "zstd"
+        cls, object_key: str, json_str: str, compression: CompressionMethodChoices
     ) -> tuple[str, bytes, dict[str, Any]]:
         """
         JSONを圧縮してS3(R2)にアップロードするためのデータを作成する
@@ -92,7 +92,7 @@ class JsonMixin:
         # JSONは仕様上UTF-8エンコーディングなので "; charset=utf-8" は不要
         # 圧縮方法は Content-Encoding で指定する
         s3_system_metadata = {"ContentType": "application/json"}
-        key = cls.compressed_json_object_key(object_key, compression=compression)
+        key = cls.compressed_json_object_key(object_key, compression)
         json_bytes = json_str.encode("utf-8")
         if compression == "br":
             body = brotli.compress(json_bytes, mode=brotli.MODE_TEXT)
@@ -107,7 +107,7 @@ class JsonMixin:
         return key, body, s3_system_metadata
 
     @staticmethod
-    def compressed_json_object_key(object_key: str, compression: CompressionMethodChoices = "zstd") -> str:
+    def compressed_json_object_key(object_key: str, compression: CompressionMethodChoices) -> str:
         if object_key.endswith(".json"):
             if compression == "br":
                 return object_key + ".br"
