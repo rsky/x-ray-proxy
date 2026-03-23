@@ -115,7 +115,7 @@ class MemberInfoResponseHandler(
 
     @error_logging(logger)
     async def upload_data(self, object_key: str, json_str: str, url: str, timestamp_in_millis: int) -> None:
-        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str)
+        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression="zstd")
         if self._s3_allow_public_access:
             s3_system_metadata["ACL"] = "public-read"
 
@@ -125,8 +125,8 @@ class MemberInfoResponseHandler(
 
     @error_logging(logger)
     async def copy_master_data(self, src_key: str, dst_key: str, timestamp_in_millis: int) -> None:
-        compressed_src_key = self.compressed_json_object_key(src_key)
-        compressed_dst_key = self.compressed_json_object_key(dst_key)
+        compressed_src_key = self.compressed_json_object_key(src_key, compression="zstd")
+        compressed_dst_key = self.compressed_json_object_key(dst_key, compression="zstd")
 
         s3_system_metadata = {}
         if self._s3_allow_public_access:

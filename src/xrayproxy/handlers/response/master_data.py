@@ -67,7 +67,7 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
     async def upload_data(
         self, object_key: str, copy_object_key: str, json_str: str, url: str, timestamp_in_millis: int
     ) -> None:
-        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str)
+        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression="zstd")
         copy_key = key.replace(object_key, copy_object_key)
         if self._s3_allow_public_access:
             s3_system_metadata["ACL"] = "public-read"
