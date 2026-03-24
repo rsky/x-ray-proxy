@@ -63,9 +63,10 @@ def create_request_info(request: mitmproxy.http.Request) -> "RequestInfo":
     headers: CIMultiDict[str] = CIMultiDict()
     data = request.raw_content
 
-    for k, v in request.headers.items():  # type: ignore
-        if k.lower() not in HOP_BY_HOP_HEADERS:
-            headers.add(k, v)
+    for header_name, header_value in request.headers.fields:
+        key = header_name.decode("utf-8", "surrogateescape")
+        if key.lower() not in HOP_BY_HOP_HEADERS:
+            headers.add(key, header_value.decode("utf-8", "surrogateescape"))
 
     return RequestInfo(method=method, url=url, headers=headers, data=data)
 
