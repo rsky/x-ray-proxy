@@ -99,7 +99,7 @@ class JsonMixin:
             body = brotli.compress(json_bytes, mode=brotli.MODE_TEXT)
             s3_system_metadata["ContentEncoding"] = "br"
         elif compression == "zstd":
-            cctx = ZstdCompressor()
+            cctx = ZstdCompressor(level=8)  # api_port/port のJSONデータ圧縮率とスループットのバランスが良いレベル
             body = cctx.compress(json_bytes)
             s3_system_metadata["ContentEncoding"] = "zstd"
         else:
