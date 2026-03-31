@@ -76,6 +76,15 @@ api_log_bucket = "x-ray-log"
 allow_public_access = true
 ```
 
+## `[storage.cloudflare]` Cloudflare R2設定
+
+Cloudflare R2固有の設定項目です。
+
+| 設定項目                  | 型     | デフォルト値 | 説明                                                                               |
+| ------------------------- | ------ | ------------ | ---------------------------------------------------------------------------------- |
+| `api_token`               | string | なし         | CloudflareのAPIトークン。publicなR2バケットのEdge Cacheを削除するために使います。  |
+| `bucket_public_host_name` | string | なし         | R2バケットの公開ホスト名。publicなR2バケットのEdge Cacheを削除するために使います。 |
+
 ## `[resource]` リソース保存設定
 
 各種リソースをオブジェクトストレージに保存する設定です。
