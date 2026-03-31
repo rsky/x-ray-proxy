@@ -46,7 +46,7 @@ class ShipGraphicRequestHandler(BaseRequestHandler, DatabaseMixin, ObjectStorage
 
     def configure(self, config: Config) -> None:
         super().configure(config)
-        self.configure_object_storage(config, config.storage.resources_bucket)
+        self.configure_object_storage(config, config.storage.resource_bucket)
 
         target_ship_ids = set(config.rewrite.replace_ship_graphics.mapping.keys())
         if len(target_ship_ids) > 0:

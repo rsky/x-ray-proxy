@@ -24,13 +24,9 @@ class StorageConfig:
     endpoint_url: Optional[str]
     api_log_bucket: str
     data_bucket: str
-    resources_bucket: str
+    resource_bucket: str
     allow_public_access: bool
     cloudflare: CloudflareStorageConfig
-
-    @property
-    def resource_bucket(self) -> str:
-        return self.resources_bucket
 
     def to_s3_client_kwargs(self) -> dict[str, Any]:
         return {
@@ -58,7 +54,7 @@ def create_storage_config(data: dict[str, Any]) -> StorageConfig:
         endpoint_url=str(data["endpoint_url"]) if "endpoint_url" in data else None,
         api_log_bucket=str(data.get("api_log_bucket", "")),
         data_bucket=str(data.get("data_bucket", "")),
-        resources_bucket=resource_bucket,
+        resource_bucket=resource_bucket,
         allow_public_access=bool(data.get("allow_public_access", False)),
         cloudflare=create_cloudflare_storage_config(data.get("cloudflare", {})),
     )

@@ -178,7 +178,7 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
 
     def configure(self, config: Config) -> None:
         super().configure(config)
-        self.configure_object_storage(config, config.storage.resources_bucket)
+        self.configure_object_storage(config, config.storage.resource_bucket)
 
         self._save_mode = config.resource.save_mode or SaveMode.DEFAULT
         self._ship_graphic_versioning = config.resource.ship_graphic_versioning
