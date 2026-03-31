@@ -79,14 +79,18 @@ allow_public_access = true
 ## `[storage.cloudflare]` Cloudflare R2設定
 
 Cloudflare R2固有の設定項目です。パブリックアクセス可能なR2バケットのEdge Cacheを削除するために使います。
-Edge Cacheを削除しない場合は設定不要です
+Edge Cacheを削除しない場合は設定不要ですが、X-Ray Webを利用する際は設定されることをお勧めします。
+APIトークンやZone IDについては下記リンク先のCloudflare公式ドキュメントを参照してください。
 
-| 設定項目                           | 型     | デフォルト値 | 説明                                          |
-| ---------------------------------- | ------ | ------------ | --------------------------------------------- |
-| `api_token`                        | string | なし         | **[必須]** CloudflareのAPIトークン。          |
-| `zone_id`                          | string | なし         | **[必須]** CloudflareのZone ID。              |
-| `resource_bucket_public_host_name` | string | なし         | **[必須]** `resource_bucket` の公開ホスト名。 |
-| `data_bucket_public_host_name`     | string | なし         | **[必須]** `data_bucket` の公開ホスト名。     |
+- [Create API token · Cloudflare Fundamentals docs](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
+- [Find account and zone IDs · Cloudflare Fundamentals docs](https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/)
+
+| 設定項目                           | 型     | デフォルト値 | 説明                                                                                                                     |
+| ---------------------------------- | ------ | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `api_token`                        | string | なし         | **[必須]** CloudflareのAPIトークン。`zone_id` で指定するゾーンの *Zone.Cache Purge* パーミッションが付与されていること。 |
+| `zone_id`                          | string | なし         | **[必須]** CloudflareのZone ID。                                                                                         |
+| `resource_bucket_public_host_name` | string | なし         | **[必須]** `resource_bucket` の公開ホスト名。                                                                            |
+| `data_bucket_public_host_name`     | string | なし         | **[必須]** `data_bucket` の公開ホスト名。                                                                                |
 
 設定例:
 
