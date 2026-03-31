@@ -129,10 +129,10 @@ class ObjectStorageMixin:
     _s3_bucket: str
     _s3_client_kwargs: dict[str, Any]
     _s3_allow_public_access: bool
-    _cf_client: Optional[AsyncCloudflare] = None
-    _cf_zone_id: str = ""
-    _cf_public_host_name: str = ""
-    _purge_cache_enabled: bool = False
+    _purge_cache_enabled: bool
+    _cf_client: Optional[AsyncCloudflare]
+    _cf_zone_id: str
+    _cf_public_host_name: str
 
     def set_boto_session(self, session: aioboto3.Session) -> None:
         self._boto_session = session
@@ -147,10 +147,12 @@ class ObjectStorageMixin:
         self._s3_bucket = bucket
         self._s3_client_kwargs = config.storage.to_s3_client_kwargs()
         self._s3_allow_public_access = config.storage.allow_public_access
+
+        self._purge_cache_enabled = purge_cache
+
         self._cf_client = None
         self._cf_zone_id = ""
         self._cf_public_host_name = ""
-        self._purge_cache_enabled = purge_cache
 
         # Cloudflare固有設定
         cf = config.storage.cloudflare
