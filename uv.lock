@@ -440,6 +440,23 @@ wheels = [
 ]
 
 [[package]]
+name = "cloudflare"
+version = "4.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5d/48/e481c0a9b9010a5c41b5ca78ff9fbe00dc8a9a4d39da5af610a4ec49c7f7/cloudflare-4.3.1.tar.gz", hash = "sha256:b1e1c6beeb8d98f63bfe0a1cba874fc4e22e000bcc490544f956c689b3b5b258", size = 1933187, upload-time = "2025-06-16T21:43:18.716Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3a/8f/c6c543565efd3144da4304efa5917aac06b6416a8663a6defe0e9b2b7569/cloudflare-4.3.1-py3-none-any.whl", hash = "sha256:6927135a5ee5633d6e2e1952ca0484745e933727aeeb189996d2ad9d292071c6", size = 4406465, upload-time = "2025-06-16T21:43:17.3Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -1717,6 +1734,7 @@ dependencies = [
     { name = "aioboto3" },
     { name = "alembic" },
     { name = "brotli" },
+    { name = "cloudflare" },
     { name = "httpx", extra = ["brotli", "http2", "zstd"] },
     { name = "mitmproxy" },
     { name = "pillow" },
@@ -1745,6 +1763,7 @@ requires-dist = [
     { name = "aioboto3", specifier = ">=15.5.0" },
     { name = "alembic", specifier = ">=1.18.4" },
     { name = "brotli", specifier = ">=1.2.0" },
+    { name = "cloudflare", specifier = ">=4.3.1" },
     { name = "httpx", extras = ["http2", "brotli", "zstd"], specifier = ">=0.28.1" },
     { name = "mitmproxy", specifier = ">=12.2.1" },
     { name = "pillow", specifier = ">=12.1.1" },
