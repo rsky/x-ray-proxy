@@ -15,8 +15,10 @@ allow_public_access = false
 api_token = "<cloudflareApiToken>"
 # Cloudflare DNSゾーンのZone ID
 zone_id = "<cloudflareZoneId>"
-# publicなR2バケットの公開ホスト名
-bucket_public_host_name = "pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
+# publicなresource_bucketの公開ホスト名
+resource_bucket_public_host_name = "pub-resource-xxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
+# publicなdata_bucketの公開ホスト名
+data_bucket_public_host_name = "pub-data-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 
 [resource]
 save_mode = "default"

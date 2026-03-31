@@ -131,27 +131,35 @@ class ObjectStorageMixin:
     _s3_allow_public_access: bool
     _cf_client: Optional[AsyncCloudflare] = None
     _cf_zone_id: str = ""
-    _cf_bucket_public_host_name: str = ""
+    _cf_public_host_name: str = ""
+    _purge_cache_enabled: bool = False
 
     def set_boto_session(self, session: aioboto3.Session) -> None:
         self._boto_session = session
 
-    def configure_object_storage(self, config: Config, bucket: str) -> None:
+    def configure_object_storage(
+        self,
+        config: Config,
+        bucket: str,
+        purge_cache: bool = False,
+        cf_public_host_name: Optional[str] = None,
+    ) -> None:
         self._s3_bucket = bucket
         self._s3_client_kwargs = config.storage.to_s3_client_kwargs()
         self._s3_allow_public_access = config.storage.allow_public_access
+        self._cf_client = None
+        self._cf_zone_id = ""
+        self._cf_public_host_name = ""
+        self._purge_cache_enabled = purge_cache
 
         # Cloudflare固有設定
-        if (
-            config.storage.cloudflare.api_token
-            and config.storage.cloudflare.zone_id
-            and config.storage.cloudflare.bucket_public_host_name
-        ):
+        cf = config.storage.cloudflare
+        if purge_cache and cf.api_token and cf.zone_id and cf_public_host_name:
             self._cf_client = AsyncCloudflare(
-                api_token=config.storage.cloudflare.api_token,
+                api_token=cf.api_token,
             )
-            self._cf_zone_id = config.storage.cloudflare.zone_id
-            self._cf_bucket_public_host_name = config.storage.cloudflare.bucket_public_host_name
+            self._cf_zone_id = cf.zone_id
+            self._cf_public_host_name = cf_public_host_name
 
     def create_s3_client(self) -> "ClientCreatorContext[S3Client]":
         return self._boto_session.client("s3", **self._s3_client_kwargs)
@@ -175,7 +183,6 @@ class ObjectStorageMixin:
         body: bytes,
         original_url: Optional[str],
         extra_metadata: Optional[dict[str, str]] = None,
-        purge_cache: bool = False,
         **kwargs: Any,
     ) -> None:
         metadata = dict(extra_metadata or {})
@@ -190,8 +197,7 @@ class ObjectStorageMixin:
             **kwargs,
         )
 
-        if purge_cache:
-            await self._purge_cache(key)
+        await self._purge_cache_if_required(key)
 
     async def put_object_if_none_match(
         self,
@@ -200,7 +206,6 @@ class ObjectStorageMixin:
         body: bytes,
         original_url: Optional[str],
         extra_metadata: Optional[dict[str, str]] = None,
-        purge_cache: bool = False,
         **kwargs: Any,
     ) -> bool:
         """
@@ -233,7 +238,6 @@ class ObjectStorageMixin:
             body=body,
             original_url=original_url,
             extra_metadata=extra_metadata,
-            purge_cache=purge_cache,
             **kwargs,
         )
         return True
@@ -245,7 +249,6 @@ class ObjectStorageMixin:
         dst_key: str,
         original_url: Optional[str],
         extra_metadata: Optional[dict[str, str]] = None,
-        purge_cache: bool = False,
         **kwargs: Any,
     ) -> None:
         metadata = dict(extra_metadata or {})
@@ -262,8 +265,7 @@ class ObjectStorageMixin:
             **kwargs,
         )
 
-        if purge_cache:
-            await self._purge_cache(dst_key)
+        await self._purge_cache_if_required(dst_key)
 
     async def copy_object_if_not_exists(
         self,
@@ -282,7 +284,14 @@ class ObjectStorageMixin:
         if await self.object_exists(s3, dst_key):
             return False
 
-        await self.copy_object(s3, src_key, dst_key, original_url, extra_metadata, **kwargs)
+        await self.copy_object(
+            s3,
+            src_key,
+            dst_key,
+            original_url,
+            extra_metadata,
+            **kwargs,
+        )
         return True
 
     async def copy_object_if_none_match(
@@ -316,7 +325,14 @@ class ObjectStorageMixin:
             if err.response["Error"]["Code"] != "404":
                 raise
 
-        await self.copy_object(s3, src_key, dst_key, original_url, extra_metadata, **kwargs)
+        await self.copy_object(
+            s3,
+            src_key,
+            dst_key,
+            original_url,
+            extra_metadata,
+            **kwargs,
+        )
         return True
 
     async def object_exists(self, s3: "S3Client", key: str) -> bool:
@@ -328,14 +344,15 @@ class ObjectStorageMixin:
                 return False
             raise
 
-    async def _purge_cache(self, key: str) -> None:
-        if self._cf_client is not None:
-            # https://developers.cloudflare.com/api/resources/cache/methods/purge/
-            await self._cf_client.cache.purge(
-                zone_id=self._cf_zone_id,
-                files=[f"https://{self._cf_bucket_public_host_name}/{key}"],
-            )
+    async def _purge_cache_if_required(self, key: str) -> None:
+        if not self._purge_cache_enabled or self._cf_client is None:
+            return
 
+        # https://developers.cloudflare.com/api/resources/cache/methods/purge/
+        await self._cf_client.cache.purge(
+            zone_id=self._cf_zone_id,
+            files=[f"https://{self._cf_public_host_name}/{key}"],
+        )
 
 class ResponseFileMixin:
     @staticmethod

@@ -57,7 +57,12 @@ class MemberInfoResponseHandler(
 
     def configure(self, config: Config) -> None:
         super().configure(config)
-        self.configure_object_storage(config, config.storage.data_bucket)
+        self.configure_object_storage(
+            config,
+            config.storage.data_bucket,
+            purge_cache=True,
+            cf_public_host_name=config.storage.cloudflare.data_bucket_public_host_name,
+        )
         self.configure_json_response_handler(config.api_log)
         self.configure_webhook_client(config)
 
@@ -131,7 +136,7 @@ class MemberInfoResponseHandler(
             if self._s3_allow_public_access:
                 s3_system_metadata["ACL"] = "public-read"
 
-            await self.put_object(s3, key, body, url, purge_cache=True, **s3_system_metadata)
+            await self.put_object(s3, key, body, url, **s3_system_metadata)
             updated_resource_keys.append(key)
 
         for key in updated_resource_keys:
@@ -159,7 +164,6 @@ class MemberInfoResponseHandler(
                 dst_key=compressed_dst_key,
                 original_url=None,
                 extra_metadata=None,
-                purge_cache=True,
                 **s3_system_metadata,
             ):
                 await self.notify_resource_update(compressed_dst_key, timestamp_in_millis)

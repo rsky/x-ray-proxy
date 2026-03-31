@@ -79,12 +79,14 @@ allow_public_access = true
 ## `[storage.cloudflare]` Cloudflare R2設定
 
 Cloudflare R2固有の設定項目です。パブリックアクセス可能なR2バケットのEdge Cacheを削除するために使います。
+Edge Cacheを削除しない場合は設定不要です
 
-| 設定項目                  | 型     | デフォルト値 | 説明                       |
-| ------------------------- | ------ | ------------ | -------------------------- |
-| `api_token`               | string | なし         | CloudflareのAPIトークン。  |
-| `zone_id`                 | string | なし         | CloudflareのZone ID。      |
-| `bucket_public_host_name` | string | なし         | R2バケットの公開ホスト名。 |
+| 設定項目                           | 型     | デフォルト値 | 説明                                          |
+| ---------------------------------- | ------ | ------------ | --------------------------------------------- |
+| `api_token`                        | string | なし         | **[必須]** CloudflareのAPIトークン。          |
+| `zone_id`                          | string | なし         | **[必須]** CloudflareのZone ID。              |
+| `resource_bucket_public_host_name` | string | なし         | **[必須]** `resource_bucket` の公開ホスト名。 |
+| `data_bucket_public_host_name`     | string | なし         | **[必須]** `data_bucket` の公開ホスト名。     |
 
 設定例:
 
@@ -92,7 +94,8 @@ Cloudflare R2固有の設定項目です。パブリックアクセス可能なR
 [storage.cloudflare]
 api_token = "<cloudflareApiToken>"
 zone_id = "<cloudflareZoneId>"
-bucket_public_host_name = "pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
+resource_bucket_public_host_name = "pub-resource-xxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
+data_bucket_public_host_name = "pub-data-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 ```
 
 ## `[resource]` リソース保存設定

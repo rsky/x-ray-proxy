@@ -10,7 +10,24 @@ class CloudflareStorageConfig:
 
     api_token: Optional[str]
     zone_id: Optional[str]
-    bucket_public_host_name: Optional[str]
+    resource_bucket_public_host_name: Optional[str]
+    data_bucket_public_host_name: Optional[str]
+
+    def __post_init__(self) -> None:
+        if self.api_token is None:
+            return
+
+        missing_keys = []
+        if not self.zone_id:
+            missing_keys.append("zone_id")
+        if not self.resource_bucket_public_host_name:
+            missing_keys.append("resource_bucket_public_host_name")
+        if not self.data_bucket_public_host_name:
+            missing_keys.append("data_bucket_public_host_name")
+
+        if missing_keys:
+            missing = ", ".join(missing_keys)
+            raise ValueError(f"storage.cloudflare.api_token is set, but {missing} is missing.")
 
 
 @dataclass(frozen=True, kw_only=True, slots=True, eq=False)
@@ -42,7 +59,12 @@ def create_cloudflare_storage_config(data: dict[str, Any]) -> CloudflareStorageC
     return CloudflareStorageConfig(
         api_token=str(data["api_token"]) if "api_token" in data else None,
         zone_id=str(data["zone_id"]) if "zone_id" in data else None,
-        bucket_public_host_name=str(data["bucket_public_host_name"]) if "bucket_public_host_name" in data else None,
+        resource_bucket_public_host_name=(
+            str(data["resource_bucket_public_host_name"]) if "resource_bucket_public_host_name" in data else None
+        ),
+        data_bucket_public_host_name=(
+            str(data["data_bucket_public_host_name"]) if "data_bucket_public_host_name" in data else None
+        ),
     )
 
 

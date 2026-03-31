@@ -46,7 +46,12 @@ class ShipGraphicRequestHandler(BaseRequestHandler, DatabaseMixin, ObjectStorage
 
     def configure(self, config: Config) -> None:
         super().configure(config)
-        self.configure_object_storage(config, config.storage.resource_bucket)
+        self.configure_object_storage(
+            config,
+            config.storage.resource_bucket,
+            purge_cache=True,
+            cf_public_host_name=config.storage.cloudflare.resource_bucket_public_host_name,
+        )
 
         target_ship_ids = set(config.rewrite.replace_ship_graphics.mapping.keys())
         if len(target_ship_ids) > 0:
