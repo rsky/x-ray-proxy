@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, List, Literal, Optional
 import aioboto3
 import brotli
 import sqlalchemy
+from cloudflare import AsyncCloudflare
 from mitmproxy.http import Response
 from zstandard import ZstdCompressor
 
@@ -128,6 +129,9 @@ class ObjectStorageMixin:
     _s3_bucket: str
     _s3_client_kwargs: dict[str, Any]
     _s3_allow_public_access: bool
+    _cf_client: Optional[AsyncCloudflare] = None
+    _cf_zone_id: str = ""
+    _cf_bucket_public_host_name: str = ""
 
     def set_boto_session(self, session: aioboto3.Session) -> None:
         self._boto_session = session
@@ -136,6 +140,18 @@ class ObjectStorageMixin:
         self._s3_bucket = bucket
         self._s3_client_kwargs = config.storage.to_s3_client_kwargs()
         self._s3_allow_public_access = config.storage.allow_public_access
+
+        # Cloudflare固有設定
+        if (
+            config.storage.cloudflare.api_token
+            and config.storage.cloudflare.zone_id
+            and config.storage.cloudflare.bucket_public_host_name
+        ):
+            self._cf_client = AsyncCloudflare(
+                api_token=config.storage.cloudflare.api_token,
+            )
+            self._cf_zone_id = config.storage.cloudflare.zone_id
+            self._cf_bucket_public_host_name = config.storage.cloudflare.bucket_public_host_name
 
     def create_s3_client(self) -> "ClientCreatorContext[S3Client]":
         return self._boto_session.client("s3", **self._s3_client_kwargs)
@@ -159,6 +175,7 @@ class ObjectStorageMixin:
         body: bytes,
         original_url: Optional[str],
         extra_metadata: Optional[dict[str, str]] = None,
+        purge_cache: bool = False,
         **kwargs: Any,
     ) -> None:
         metadata = dict(extra_metadata or {})
@@ -173,6 +190,9 @@ class ObjectStorageMixin:
             **kwargs,
         )
 
+        if purge_cache:
+            await self._purge_cache(key)
+
     async def put_object_if_none_match(
         self,
         s3: "S3Client",
@@ -180,6 +200,7 @@ class ObjectStorageMixin:
         body: bytes,
         original_url: Optional[str],
         extra_metadata: Optional[dict[str, str]] = None,
+        purge_cache: bool = False,
         **kwargs: Any,
     ) -> bool:
         """
@@ -208,10 +229,11 @@ class ObjectStorageMixin:
         # オブジェクトが存在しなかった場合とETagが一致しなかった場合、put_objectを実行する
         await self.put_object(
             s3,
-            key,
-            body,
-            original_url,
-            extra_metadata,
+            key=key,
+            body=body,
+            original_url=original_url,
+            extra_metadata=extra_metadata,
+            purge_cache=purge_cache,
             **kwargs,
         )
         return True
@@ -223,6 +245,7 @@ class ObjectStorageMixin:
         dst_key: str,
         original_url: Optional[str],
         extra_metadata: Optional[dict[str, str]] = None,
+        purge_cache: bool = False,
         **kwargs: Any,
     ) -> None:
         metadata = dict(extra_metadata or {})
@@ -238,6 +261,9 @@ class ObjectStorageMixin:
             Metadata=metadata,
             **kwargs,
         )
+
+        if purge_cache:
+            await self._purge_cache(dst_key)
 
     async def copy_object_if_not_exists(
         self,
@@ -301,6 +327,14 @@ class ObjectStorageMixin:
             if err.response["Error"]["Code"] == "404":
                 return False
             raise
+
+    async def _purge_cache(self, key: str) -> None:
+        if self._cf_client is not None:
+            # https://developers.cloudflare.com/api/resources/cache/methods/purge/
+            await self._cf_client.cache.purge(
+                zone_id=self._cf_zone_id,
+                files=[f"https://{self._cf_bucket_public_host_name}/{key}"],
+            )
 
 
 class ResponseFileMixin:

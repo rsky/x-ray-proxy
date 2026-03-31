@@ -131,7 +131,7 @@ class MemberInfoResponseHandler(
             if self._s3_allow_public_access:
                 s3_system_metadata["ACL"] = "public-read"
 
-            await self.put_object(s3, key, body, url, **s3_system_metadata)
+            await self.put_object(s3, key, body, url, purge_cache=True, **s3_system_metadata)
             updated_resource_keys.append(key)
 
         for key in updated_resource_keys:
@@ -154,7 +154,13 @@ class MemberInfoResponseHandler(
                 s3_system_metadata["ACL"] = "public-read"
 
             if await self.copy_object_if_none_match(
-                s3, compressed_src_key, compressed_dst_key, None, None, **s3_system_metadata
+                s3,
+                src_key=compressed_src_key,
+                dst_key=compressed_dst_key,
+                original_url=None,
+                extra_metadata=None,
+                purge_cache=True,
+                **s3_system_metadata,
             ):
                 await self.notify_resource_update(compressed_dst_key, timestamp_in_millis)
 

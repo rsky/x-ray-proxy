@@ -423,6 +423,7 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
                 upload_ctx.body,
                 upload_ctx.url,
                 extra_metadata=extra_metadata,
+                purge_cache=True,
                 **s3_system_metadata,
             )
             if saved:
@@ -435,12 +436,15 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
 
             if upload_ctx.copy_key is not None:
                 # コピー先が存在しない場合のみコピーする (上書きはしない)
+                # 404でもCloudflareではデフォルトで3分間キャッシュされるのでpurge_cacheを指定する
+                # https://developers.cloudflare.com/cache/concepts/default-cache-behavior/#edge-ttl
                 copied = await self.copy_object_if_not_exists(
                     s3,
                     upload_ctx.key,
                     upload_ctx.copy_key,
                     upload_ctx.url,
                     extra_metadata=extra_metadata,
+                    purge_cache=True,
                     **s3_system_metadata,
                 )
                 if copied:

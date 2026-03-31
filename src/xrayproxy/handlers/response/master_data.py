@@ -87,10 +87,10 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
             if self._s3_allow_public_access:
                 s3_system_metadata["ACL"] = "public-read"
 
-            if await self.put_object_if_none_match(s3, key, body, url, **s3_system_metadata):
+            if await self.put_object_if_none_match(s3, key, body, url, purge_cache=True, **s3_system_metadata):
                 updated_resource_keys.append(key)
 
-            if await self.put_object_if_none_match(s3, copy_key, body, url, **s3_system_metadata):
+            if await self.put_object_if_none_match(s3, copy_key, body, url, purge_cache=True, **s3_system_metadata):
                 updated_resource_keys.append(copy_key)
 
         if len(updated_resource_keys) > 0:
