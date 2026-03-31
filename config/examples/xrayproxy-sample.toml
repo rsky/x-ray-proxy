@@ -5,10 +5,16 @@ endpoint_url = "https://<ACCOUNT_ID>.r2.cloudflarestorage.com"
 region = "auto"
 access_key_id = "<accessKeyId>"
 secret_access_key = "<secretAccessKey>"
-resources_bucket = "x-ray"
+resource_bucket = "x-ray"
 data_bucket = "x-ray"
 api_log_bucket = "x-ray-log"
 allow_public_access = false
+
+[storage.cloudflare]
+# publicなR2バケットのEdge Cache削除に使うCloudflare APIトークン
+api_token = "<cloudflareApiToken>"
+# publicなR2バケットの公開ホスト名
+bucket_public_host_name = "pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 
 [resource]
 save_mode = "default"

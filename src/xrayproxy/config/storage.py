@@ -3,6 +3,16 @@ from typing import Any, Optional
 
 
 @dataclass(frozen=True, kw_only=True, slots=True, eq=False)
+class CloudflareStorageConfig:
+    """
+    Cloudflare R2 specific configuration
+    """
+
+    api_token: Optional[str]
+    bucket_public_host_name: Optional[str]
+
+
+@dataclass(frozen=True, kw_only=True, slots=True, eq=False)
 class StorageConfig:
     """
     Configuration for object storage
@@ -16,6 +26,11 @@ class StorageConfig:
     data_bucket: str
     resources_bucket: str
     allow_public_access: bool
+    cloudflare: CloudflareStorageConfig
+
+    @property
+    def resource_bucket(self) -> str:
+        return self.resources_bucket
 
     def to_s3_client_kwargs(self) -> dict[str, Any]:
         return {
@@ -26,7 +41,16 @@ class StorageConfig:
         }
 
 
+def create_cloudflare_storage_config(data: dict[str, Any]) -> CloudflareStorageConfig:
+    return CloudflareStorageConfig(
+        api_token=str(data["api_token"]) if "api_token" in data else None,
+        bucket_public_host_name=str(data["bucket_public_host_name"]) if "bucket_public_host_name" in data else None,
+    )
+
+
 def create_storage_config(data: dict[str, Any]) -> StorageConfig:
+    resource_bucket = str(data.get("resource_bucket") or data.get("resources_bucket", ""))
+
     return StorageConfig(
         region=str(data.get("region", "")),
         access_key_id=str(data.get("access_key_id", "")),
@@ -34,6 +58,7 @@ def create_storage_config(data: dict[str, Any]) -> StorageConfig:
         endpoint_url=str(data["endpoint_url"]) if "endpoint_url" in data else None,
         api_log_bucket=str(data.get("api_log_bucket", "")),
         data_bucket=str(data.get("data_bucket", "")),
-        resources_bucket=str(data.get("resources_bucket", "")),
+        resources_bucket=resource_bucket,
         allow_public_access=bool(data.get("allow_public_access", False)),
+        cloudflare=create_cloudflare_storage_config(data.get("cloudflare", {})),
     )

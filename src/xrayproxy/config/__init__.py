@@ -7,10 +7,11 @@ from .rewrite import (
 )
 from .root import Config, load_config_toml
 from .save import ApiLogConfig, ResourceConfig
-from .storage import StorageConfig
+from .storage import CloudflareStorageConfig, StorageConfig
 
 __all__ = [
     "ApiLogConfig",
+    "CloudflareStorageConfig",
     "Config",
     "LogbookKaiConfig",
     "MuteEnemyVoiceConfig",
