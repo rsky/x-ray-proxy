@@ -13,6 +13,8 @@ allow_public_access = false
 [storage.cloudflare]
 # publicなR2バケットのEdge Cache削除に使うCloudflare APIトークン
 api_token = "<cloudflareApiToken>"
+# Cloudflare DNSゾーンのZone ID
+zone_id = "<cloudflareZoneId>"
 # publicなR2バケットの公開ホスト名
 bucket_public_host_name = "pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 

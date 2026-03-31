@@ -9,6 +9,7 @@ class CloudflareStorageConfig:
     """
 
     api_token: Optional[str]
+    zone_id: Optional[str]
     bucket_public_host_name: Optional[str]
 
 
@@ -40,6 +41,7 @@ class StorageConfig:
 def create_cloudflare_storage_config(data: dict[str, Any]) -> CloudflareStorageConfig:
     return CloudflareStorageConfig(
         api_token=str(data["api_token"]) if "api_token" in data else None,
+        zone_id=str(data["zone_id"]) if "zone_id" in data else None,
         bucket_public_host_name=str(data["bucket_public_host_name"]) if "bucket_public_host_name" in data else None,
     )
 

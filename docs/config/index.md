@@ -78,12 +78,22 @@ allow_public_access = true
 
 ## `[storage.cloudflare]` Cloudflare R2設定
 
-Cloudflare R2固有の設定項目です。
+Cloudflare R2固有の設定項目です。パブリックアクセス可能なR2バケットのEdge Cacheを削除するために使います。
 
-| 設定項目                  | 型     | デフォルト値 | 説明                                                                               |
-| ------------------------- | ------ | ------------ | ---------------------------------------------------------------------------------- |
-| `api_token`               | string | なし         | CloudflareのAPIトークン。publicなR2バケットのEdge Cacheを削除するために使います。  |
-| `bucket_public_host_name` | string | なし         | R2バケットの公開ホスト名。publicなR2バケットのEdge Cacheを削除するために使います。 |
+| 設定項目                  | 型     | デフォルト値 | 説明                       |
+| ------------------------- | ------ | ------------ | -------------------------- |
+| `api_token`               | string | なし         | CloudflareのAPIトークン。  |
+| `zone_id`                 | string | なし         | CloudflareのZone ID。      |
+| `bucket_public_host_name` | string | なし         | R2バケットの公開ホスト名。 |
+
+設定例:
+
+```toml
+[storage.cloudflare]
+api_token = "<cloudflareApiToken>"
+zone_id = "<cloudflareZoneId>"
+bucket_public_host_name = "pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
+```
 
 ## `[resource]` リソース保存設定
 
