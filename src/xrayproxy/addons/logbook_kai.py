@@ -153,7 +153,7 @@ def is_passive_mode_request(req: Request) -> bool:
         req.method == "POST"
         and req.host in {"localhost", "127.0.0.1"}
         and req.path.startswith("/pasv/")
-        and any(k.lower().startswith("x-pasv-") for k, _ in req.headers.items())  # type: ignore[no-untyped-call]
+        and any(header_name.lower().startswith(b"x-pasv-") for header_name, _ in req.headers.fields)
     )
 
 

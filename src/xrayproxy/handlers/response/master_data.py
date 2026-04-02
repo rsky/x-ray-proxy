@@ -13,7 +13,13 @@ from xrayproxy.generated.sqlc.master_data import (
     SaveShipParams,
 )
 from xrayproxy.handlers.base import BaseResponseHandler
-from xrayproxy.handlers.mixin import DatabaseMixin, JsonMixin, ObjectStorageMixin
+from xrayproxy.handlers.mixin import (
+    DEFAULT_COMPRESSION_METHOD,
+    CompressionMethodChoices,
+    DatabaseMixin,
+    JsonMixin,
+    ObjectStorageMixin,
+)
 from xrayproxy.lib.decorators import error_logging
 from xrayproxy.lib.xray import Context, create_webhook_client
 
@@ -65,15 +71,21 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
 
     @error_logging(logger)
     async def upload_data(
-        self, object_key: str, copy_object_key: str, json_str: str, url: str, timestamp_in_millis: int
+        self,
+        object_key: str,
+        copy_object_key: str,
+        json_str: str,
+        url: str,
+        timestamp_in_millis: int,
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
     ) -> None:
-        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str)
-        copy_key = key.replace(object_key, copy_object_key)
-        if self._s3_allow_public_access:
-            s3_system_metadata["ACL"] = "public-read"
+        updated_resource_keys = []
 
         async with self.create_s3_client() as s3:
-            updated_resource_keys = []
+            (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression=compression)
+            copy_key = key.replace(object_key, copy_object_key)
+            if self._s3_allow_public_access:
+                s3_system_metadata["ACL"] = "public-read"
 
             if await self.put_object_if_none_match(s3, key, body, url, **s3_system_metadata):
                 updated_resource_keys.append(key)
@@ -81,8 +93,8 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
             if await self.put_object_if_none_match(s3, copy_key, body, url, **s3_system_metadata):
                 updated_resource_keys.append(copy_key)
 
-            if len(updated_resource_keys) > 0:
-                await self._notify_resource_updates(updated_resource_keys, timestamp_in_millis)
+        if len(updated_resource_keys) > 0:
+            await self._notify_resource_updates(updated_resource_keys, timestamp_in_millis)
 
     def _update_master_data_db(self, host: str, master_data: dict[str, Any]) -> None:
         try:

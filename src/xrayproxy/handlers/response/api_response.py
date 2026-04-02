@@ -9,6 +9,8 @@ from xrayproxy.config import Config
 from xrayproxy.generated.sqlc.api_log import Querier, SaveApiLogParams
 from xrayproxy.handlers.base import BaseResponseHandler
 from xrayproxy.handlers.mixin import (
+    DEFAULT_COMPRESSION_METHOD,
+    CompressionMethodChoices,
     DatabaseMixin,
     JsonMixin,
     ObjectStorageMixin,
@@ -152,22 +154,22 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
 
         member_id, request_params = self.parse_request(context.request)
         object_key = self.make_object_key(context.request.path, context.respond_at)
+        log_key = None if object_key is None else self.compressed_json_object_key(object_key)
 
+        payload: Optional[ApiDataPayload] = None
         if need_to_send(context.request.path):
-            log_key = None if object_key is None else self.compressed_json_object_key(object_key)
             payload = create_payload(context, member_id, json_data, log_bucket=self._bucket, log_key=log_key)
-            if payload:
-                tasks.append(self._send_to_webhook(payload))
 
-        if object_key:
-            # Brotli圧縮を行い、"Content-Encoding: br" でアップロードするのに合わせて拡張子を追加。
+        if object_key and log_key:
+            # APIログをストレージに保存し、データベースにも記録する
+            # 通知が必要ならストレージに保存した後にWebhookに送信する
             json_str = self.encode_json(json_data)
             extra_metadata = {}
             if member_id is not None:
                 extra_metadata["x-ray-member-id"] = str(member_id)
             if request_params is not None:
                 extra_metadata["x-ray-request-body"] = urllib.parse.urlencode(request_params)
-            tasks.append(self.upload_data(object_key, json_str, context.request.url, extra_metadata))
+            tasks.append(self.upload_data(object_key, json_str, context.request.url, extra_metadata, payload=payload))
 
             params = None
             if context.request.method == "GET" and context.request.query:
@@ -178,7 +180,7 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
             Querier(self._db_conn).save_api_log(
                 SaveApiLogParams(
                     bucket=self._bucket,
-                    object_key=self.compressed_json_object_key(object_key),
+                    object_key=log_key,
                     member_id=member_id,
                     host=context.request.host,
                     method=context.request.method,
@@ -188,6 +190,9 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
                 )
             )
             self._db_conn.commit()
+        elif payload:
+            # APIログは記録せず、Webhookに送信のみを行う
+            tasks.append(self._send_to_webhook(payload))
 
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -205,10 +210,22 @@ class ApiResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, ObjectSt
         return None
 
     @error_logging(logger)
-    async def upload_data(self, object_key: str, json_str: str, url: str, extra_metadata: dict[str, Any]) -> None:
-        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str)
+    async def upload_data(
+        self,
+        object_key: str,
+        json_str: str,
+        url: str,
+        extra_metadata: dict[str, Any],
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
+        payload: Optional[ApiDataPayload] = None,
+    ) -> None:
+        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression=compression)
+        if self._s3_allow_public_access:
+            s3_system_metadata["ACL"] = "public-read"
         async with self.create_s3_client() as s3:
             await self.put_object(s3, key, body, url, extra_metadata, **s3_system_metadata)
+        if payload:
+            await self._send_to_webhook(payload)
 
     @error_logging(logger)
     async def _send_to_webhook(self, payload: ApiDataPayload) -> None:

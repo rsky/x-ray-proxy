@@ -9,6 +9,8 @@ from xrayproxy.lib.xray import Context
 
 from ..base import BaseResponseHandler
 from ..mixin import (
+    DEFAULT_COMPRESSION_METHOD,
+    CompressionMethodChoices,
     DatabaseMixin,
     JsonMixin,
     ObjectStorageMixin,
@@ -114,25 +116,43 @@ class MemberInfoResponseHandler(
             return None, False
 
     @error_logging(logger)
-    async def upload_data(self, object_key: str, json_str: str, url: str, timestamp_in_millis: int) -> None:
-        (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str)
-        if self._s3_allow_public_access:
-            s3_system_metadata["ACL"] = "public-read"
+    async def upload_data(
+        self,
+        object_key: str,
+        json_str: str,
+        url: str,
+        timestamp_in_millis: int,
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
+    ) -> None:
+        updated_resource_keys = []
 
         async with self.create_s3_client() as s3:
+            (key, body, s3_system_metadata) = self.make_upload_data(object_key, json_str, compression=compression)
+            if self._s3_allow_public_access:
+                s3_system_metadata["ACL"] = "public-read"
+
             await self.put_object(s3, key, body, url, **s3_system_metadata)
+            updated_resource_keys.append(key)
+
+        for key in updated_resource_keys:
             await self.notify_resource_update(key, timestamp_in_millis)
 
     @error_logging(logger)
-    async def copy_master_data(self, src_key: str, dst_key: str, timestamp_in_millis: int) -> None:
-        compressed_src_key = self.compressed_json_object_key(src_key)
-        compressed_dst_key = self.compressed_json_object_key(dst_key)
-
-        s3_system_metadata = {}
-        if self._s3_allow_public_access:
-            s3_system_metadata["ACL"] = "public-read"
-
+    async def copy_master_data(
+        self,
+        src_key: str,
+        dst_key: str,
+        timestamp_in_millis: int,
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
+    ) -> None:
         async with self.create_s3_client() as s3:
+            compressed_src_key = self.compressed_json_object_key(src_key, compression)
+            compressed_dst_key = self.compressed_json_object_key(dst_key, compression)
+
+            s3_system_metadata = {}
+            if self._s3_allow_public_access:
+                s3_system_metadata["ACL"] = "public-read"
+
             if await self.copy_object_if_none_match(
                 s3, compressed_src_key, compressed_dst_key, None, None, **s3_system_metadata
             ):

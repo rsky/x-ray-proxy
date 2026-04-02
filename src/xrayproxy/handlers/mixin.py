@@ -2,12 +2,13 @@ import asyncio
 import hashlib
 import json
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Literal, Optional
 
 import aioboto3
 import brotli
 import sqlalchemy
 from mitmproxy.http import Response
+from zstandard import ZstdCompressor
 
 from xrayproxy.config import ApiLogConfig, Config
 from xrayproxy.lib.utils import decode_json, encode_json, format_json
@@ -19,6 +20,10 @@ if TYPE_CHECKING:
     from types_aiobotocore_s3.type_defs import GetObjectOutputTypeDef
 
 logger = getLogger(__name__)
+
+
+CompressionMethodChoices = Literal["br", "zstd", "none"]
+DEFAULT_COMPRESSION_METHOD: CompressionMethodChoices = "zstd"
 
 
 class DatabaseMixin:
@@ -79,23 +84,41 @@ class JsonMixin:
         return encode_json(data, self._pretty_json)
 
     @classmethod
-    def make_upload_data(cls, object_key: str, json_str: str) -> tuple[str, bytes, dict[str, Any]]:
+    def make_upload_data(
+        cls, object_key: str, json_str: str, compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD
+    ) -> tuple[str, bytes, dict[str, Any]]:
         """
-        JSONをBrotli圧縮してS3(R2)にアップロードするためのデータを作成する
+        JSONを圧縮してS3(R2)にアップロードするためのデータを作成する
         """
-        key = cls.compressed_json_object_key(object_key)
-        json_bytes = json_str.encode("utf-8")
-        body = brotli.compress(json_bytes, mode=brotli.MODE_TEXT)
         # JSONは仕様上UTF-8エンコーディングなので "; charset=utf-8" は不要
         # 圧縮方法は Content-Encoding で指定する
-        s3_system_metadata = {"ContentType": "application/json", "ContentEncoding": "br"}
+        s3_system_metadata = {"ContentType": "application/json"}
+        key = cls.compressed_json_object_key(object_key, compression)
+        json_bytes = json_str.encode("utf-8")
+        if compression == "br":
+            body = brotli.compress(json_bytes, mode=brotli.MODE_TEXT)
+            s3_system_metadata["ContentEncoding"] = "br"
+        elif compression == "zstd":
+            cctx = ZstdCompressor(level=8)  # api_port/port のJSONデータ圧縮率とスループットのバランスが良いレベル
+            body = cctx.compress(json_bytes)
+            s3_system_metadata["ContentEncoding"] = "zstd"
+        else:
+            body = json_bytes
 
         return key, body, s3_system_metadata
 
     @staticmethod
-    def compressed_json_object_key(object_key: str) -> str:
+    def compressed_json_object_key(
+        object_key: str,
+        compression: CompressionMethodChoices = DEFAULT_COMPRESSION_METHOD,
+    ) -> str:
         if object_key.endswith(".json"):
-            return object_key + ".br"
+            if compression == "br":
+                return object_key + ".br"
+            elif compression == "zstd":
+                return object_key + ".zst"
+            else:
+                return object_key
         else:
             return object_key
 
