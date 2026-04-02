@@ -40,7 +40,12 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
 
     def configure(self, config: Config) -> None:
         super().configure(config)
-        self.configure_object_storage(config, config.storage.data_bucket)
+        self.configure_object_storage(
+            config,
+            config.storage.data_bucket,
+            purge_cache=True,
+            cf_public_host_name=config.storage.cloudflare.data_bucket_public_host_name,
+        )
         self.configure_json_response_handler(config.api_log)
 
         if config.x_ray.webhook:

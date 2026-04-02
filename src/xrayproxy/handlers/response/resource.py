@@ -178,7 +178,12 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
 
     def configure(self, config: Config) -> None:
         super().configure(config)
-        self.configure_object_storage(config, config.storage.resources_bucket)
+        self.configure_object_storage(
+            config,
+            config.storage.resource_bucket,
+            purge_cache=True,
+            cf_public_host_name=config.storage.cloudflare.resource_bucket_public_host_name,
+        )
 
         self._save_mode = config.resource.save_mode or SaveMode.DEFAULT
         self._ship_graphic_versioning = config.resource.ship_graphic_versioning
@@ -435,6 +440,9 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
 
             if upload_ctx.copy_key is not None:
                 # コピー先が存在しない場合のみコピーする (上書きはしない)
+                # NOTE: コピー先が存在しない状態でアクセスされたとき、Cloudflareではデフォルトで3分間
+                # 404 Not Foundをキャッシュするので、purge対象ハンドラではEdge Cacheを削除する必要がある。
+                # https://developers.cloudflare.com/cache/concepts/default-cache-behavior/#edge-ttl
                 copied = await self.copy_object_if_not_exists(
                     s3,
                     upload_ctx.key,
