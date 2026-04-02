@@ -356,6 +356,7 @@ class ObjectStorageMixin:
             files=[f"https://{self._cf_public_host_name}/{key}"],
         )
 
+
 class ResponseFileMixin:
     @staticmethod
     def response_file(file_path: str, content_type: str, if_none_match: Optional[str] = None) -> Response:
