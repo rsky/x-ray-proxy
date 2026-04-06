@@ -31,6 +31,14 @@ X-Ray Proxy は、mitmproxy アドオンとして構築された「艦隊これ�
 
 1. **ドキュメントの整形**: `uv run poe format:docs`
 
+### SQLファイルに変更がある場合
+
+1. **SQL整形**: `./bin/format_sql.sh`
+
+`format_sql.sh` は `sql-formatter` を使用してSQLファイルを整形します。`sql-formatter` がインストールされていない場合は、ユーザーにインストールを促してください。
+
+`sql-formatter` はNPMを使って `npm install -g sql-formatter` でグローバルにインストールすることを想定しています。
+
 ## 開発コマンド
 
 ### コアコマンド (uv および poethepoet 経由)
@@ -46,14 +54,14 @@ X-Ray Proxy は、mitmproxy アドオンとして構築された「艦隊これ�
 
 ### コード品質
 
-- `uv run poe lint` - すべてのリンター（flake8, black, isort, mypy）を実行
-- `uv run poe format` - コードの整形（black + isort）
+- `uv run poe lint` - すべてのリンター（ruff, mypy）を実行
+- `uv run poe format` - コードの整形（ruff）
 - `uv run poe test` - ユニットテストの実行（unittest discover を使用）
 - `uv run python -m unittest tests.xrayproxytest.module.test_class.test_method` - 単一のテストを実行
 
 ### ユーティリティコマンド
 
-- `uv run poe list_log` - API ログを一覧表示
+- `uv run poe log:list` - API ログを一覧表示
 - `uv run poe pac` - PAC ファイルを生成
 - `uv run poe search` - 検索機能
 - `uv run poe sprite` - スプライト操作
@@ -68,6 +76,7 @@ X-Ray Proxy は、mitmproxy アドオンとして構築された「艦隊これ�
 ### 主要コンポーネント
 
 **XRayAddon** (`src/xrayproxy/addons/xray.py`): リクエスト/レスポンス処理をオーケストレートする主要な mitmproxy アドオン。非同期ハンドラーを使用し、データベース接続、S3 ストレージ、HTTP セッションを管理します。
+プロキシ起動時のエントリポイントとなるスクリプトは `src/xrayproxy/scripts/xray.py` です。
 
 **ハンドラーシステム**:
 
@@ -112,12 +121,11 @@ X-Ray Proxy は、mitmproxy アドオンとして構築された「艦隊これ�
 ## コード生成
 
 - データベースクエリは `sql/queries/*.sql` から sqlc を介して `src/xrayproxy/generated/sqlc/` に生成されます。
-- スキーマやクエリを変更した後は、`sqlc generate` を実行して再生成してください。
+- スキーマやクエリを変更した後は、外部コマンドである `sqlc generate` を実行して再生成してください。
 - 生成されたファイルはリンターの対象外です（`pyproject.toml` で設定）。
 
 ## コードスタイル
 
-- Black フォーマッターを使用（行長 119 文字）
-- インポート順序は isort（black プロファイル）を使用
+- Ruff フォーマッターを使用（Black互換、行長 119 文字）
+- Ruff によるインポート順序の整理（isort互換）
 - 厳格な mypy 型チェックが有効
-- Flake8 リンター（black 互換のため E203 を除外）
