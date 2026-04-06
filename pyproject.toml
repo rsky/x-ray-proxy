@@ -83,7 +83,7 @@ format = ["format:src"]
 "ruff:fix:tests" = "ruff check --fix tests"
 "ruff:format:tests" = "ruff format tests"
 
-"format:docs" = "mdformat --number --extensions=frontmatter --extensions=footnote --extensions=gfm --extensions=gfm_alerts --extensions=tables README.md CLAUDE.md docs"
+"format:docs" = "mdformat --number --extensions=frontmatter --extensions=footnote --extensions=gfm --extensions=gfm_alerts --extensions=tables README.md AGENTS.md CLAUDE.md docs"
 
 test = "python -m unittest discover tests"
 
