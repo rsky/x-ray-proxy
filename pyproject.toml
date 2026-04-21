@@ -11,7 +11,7 @@ dependencies = [
     "Brotli>=1.2.0",
     "cloudflare>=4.3.1",
     "httpx[http2,brotli,zstd]>=0.28.1",
-    "mitmproxy>=12.2.1",
+    "mitmproxy>=12.2.2",
     "pillow>=12.2.0",
     "SQLAlchemy>=2.0.48",
     "tenacity>=9.1.4",
@@ -29,9 +29,9 @@ dev = [
     "mdformat-gfm>=1.0.0",
     "mdformat-gfm-alerts>=2.0.0",
     "mdformat-tables>=1.0.0",
-    "mypy>=1.20.0",
-    "poethepoet>=0.42.1",
-    "ruff>=0.15.8",
+    "mypy>=1.20.1",
+    "poethepoet>=0.44.0",
+    "ruff>=0.15.11",
     "types-aioboto3[s3]>=15.5.0",
 ]
 
