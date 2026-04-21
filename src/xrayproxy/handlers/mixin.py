@@ -156,8 +156,8 @@ class ObjectStorageMixin:
         self._cf_public_host_name = ""
 
         # Cloudflare固有設定
-        cf = config.storage.cloudflare
-        if purge_cache_on_upload and cf.api_token and cf.zone_id and cf_public_host_name:
+        cf = config.cloudflare
+        if purge_cache_on_upload and cf and cf_public_host_name:
             self._cf_client = AsyncCloudflare(
                 api_token=cf.api_token,
             )

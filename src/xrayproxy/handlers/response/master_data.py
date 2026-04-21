@@ -6,6 +6,7 @@ from typing import Any, List
 from sqlalchemy.orm import Session
 
 from xrayproxy.config import Config
+from xrayproxy.config.cloudflare import get_r2_resource_public_host_name
 from xrayproxy.config.xray import XRayWebhookConfig
 from xrayproxy.generated.sqlc.master_data import (
     Querier,
@@ -45,7 +46,7 @@ class MasterDataResponseHandler(BaseResponseHandler, DatabaseMixin, JsonMixin, O
             config.storage.resource_bucket,
             allow_public_access=config.storage.allow_data_public_access,
             purge_cache_on_upload=True,
-            cf_public_host_name=config.storage.cloudflare.resource_bucket_public_host_name,
+            cf_public_host_name=get_r2_resource_public_host_name(config.cloudflare),
         )
         self.configure_json_response_handler(config.api_log)
 

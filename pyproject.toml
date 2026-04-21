@@ -93,6 +93,8 @@ line-length = 119
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+# ignoreで指定した項目はlintでエラーにせずformatで整形させる
+ignore = ["E203", "E501"]
 
 [tool.mypy]
 #follow_imports = "skip"

@@ -10,10 +10,10 @@ api_log_bucket = "x-ray-log"
 allow_data_public_access = false
 allow_resource_public_access = true
 
-[storage.cloudflare]
+[cloudflare]
 api_token = "<cloudflareApiToken>"
 zone_id = "<cloudflareZoneId>"
-resource_bucket_public_host_name = "pub-resource-xxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
+r2_resource_public_host_name = "custom-domain.example.com"
 
 [resource]
 save_mode = "default"

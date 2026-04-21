@@ -76,28 +76,28 @@ allow_data_public_access = true
 allow_resource_public_access = true
 ```
 
-## `[storage.cloudflare]` Cloudflare R2設定
+## `[cloudflare]` Cloudflare設定
 
-Cloudflare R2固有の設定項目です。パブリックアクセス可能なR2バケットのEdge Cacheを削除するために使います。
-Edge Cacheを削除しない場合は設定不要ですが、X-Ray Webを利用する際は設定されることをお勧めします。
+Cloudflare固有の設定項目です。
+オブジェクトストレージにCloudflare R2を使う場合は設定してください。
 APIトークンやZone IDについては下記リンク先のCloudflare公式ドキュメントを参照してください。
 
-- [Create API token · Cloudflare Fundamentals docs](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
-- [Find account and zone IDs · Cloudflare Fundamentals docs](https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/)
+- :link: [Create API token · Cloudflare Fundamentals docs](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)
+- :link: [Find account and zone IDs · Cloudflare Fundamentals docs](https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/)
 
-| 設定項目                           | 型     | デフォルト値 | 説明                                                                                                                     |
-| ---------------------------------- | ------ | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `api_token`                        | string | なし         | **[必須]** CloudflareのAPIトークン。`zone_id` で指定するゾーンの *Zone.Cache Purge* パーミッションが付与されていること。 |
-| `zone_id`                          | string | なし         | **[必須]** CloudflareのZone ID。                                                                                         |
-| `resource_bucket_public_host_name` | string | なし         | **[必須]** `resource_bucket` の公開ホスト名。                                                                            |
+| 設定項目                       | 型     | デフォルト値 | 説明                                                                                                                     |
+| ------------------------------ | ------ | ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `api_token`                    | string | なし         | **[必須]** CloudflareのAPIトークン。`zone_id` で指定するゾーンの *Zone.Cache Purge* パーミッションが付与されていること。 |
+| `zone_id`                      | string | なし         | **[必須]** CloudflareのZone ID。                                                                                         |
+| `r2_resource_public_host_name` | string | なし         | `storage.resource_bucket` の公開ホスト名。アップロード後にEdge Cacheを削除する場合に指定する。[^4]                       |
 
 設定例:
 
 ```toml
-[storage.cloudflare]
+[cloudflare]
 api_token = "<cloudflareApiToken>"
 zone_id = "<cloudflareZoneId>"
-resource_bucket_public_host_name = "pub-resource-xxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
+r2_resource_public_host_name = "custom-domain.example.com"
 ```
 
 ## `[resource]` リソース保存設定
@@ -231,3 +231,5 @@ local_token = "eyJhbG..............."
 [^2]: バケットのデフォルトでパブリックアクセスが許可されている場合は、`allow_{data,resource}_public_access = false` に設定してもパブリックアクセスが許可されます。
 
 [^3]: S3ではバケットのACLが有効になっていないと `allow_{data,resource}_public_access = true` に設定した際に `AccessControlListNotSupported` エラーが発生してアップロードに失敗します。
+
+[^4]: キャッシュが有効になるのはバケットをカスタムドメインで公開している場合のみです。:link: [Enable cache in an R2 bucket · Cloudflare Cache (CDN) docs](https://developers.cloudflare.com/cache/interaction-cloudflare-products/r2/)
