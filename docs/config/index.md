@@ -23,16 +23,16 @@ log_verbosity = "INFO"
 > [!NOTE]
 > X-RayプロジェクトではCloudflare R2を基準としているため、Amazon S3を含む他のオブジェクトストレージでは完全に期待通りの動作をしないかもしれません。[^1]
 
-| 設定項目              | 型      | デフォルト値 | 説明                                                                                                                                           |
-| --------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `region`              | string  | なし         | **[必須]** バケットのあるリージョン。                                                                                                          |
-| `access_key_id`       | string  | なし         | **[必須]** アクセスキーID。                                                                                                                    |
-| `secret_access_key`   | string  | なし         | **[必須]** シークレットアクセスキー。                                                                                                          |
-| `endpoint_url`        | string  | なし         | S3 REST APIのエンドポイントURL。指定しない場合はAmazon S3デフォルトのエンドポイントが使用されます。                                            |
-| `resource_bucket`     | string  | なし         | **[必須]** 画像リソースを保存するバケット名。<br>これら3つのバケット名は同じでも、違っていてもかまいません。                                   |
-| `data_bucket`         | string  | なし         | **[必須]** マスターデータや母港データ等を保存するバケット名。                                                                                  |
-| `api_log_bucket`      | string  | なし         | **[必須]** APIログを保存するバケット名。                                                                                                       |
-| `allow_public_access` | boolean | `false`      | バケットにアップロードしたリソースやデータにパブリックアクセスを許可します。<br>ログは対象外で、バケットのデフォルトのままとなります。[^2][^3] |
+| 設定項目                       | 型      | デフォルト値 | 説明                                                                                                                 |
+| ------------------------------ | ------- | ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `region`                       | string  | なし         | **[必須]** バケットのあるリージョン。                                                                                |
+| `access_key_id`                | string  | なし         | **[必須]** アクセスキーID。                                                                                          |
+| `secret_access_key`            | string  | なし         | **[必須]** シークレットアクセスキー。                                                                                |
+| `endpoint_url`                 | string  | なし         | S3 REST APIのエンドポイントURL。指定しない場合はAmazon S3デフォルトのエンドポイントが使用されます。                  |
+| `resource_bucket`              | string  | なし         | **[必須]** マスターデータや母港データ、画像リソース等を保存するバケット名。                                          |
+| `api_log_bucket`               | string  | なし         | **[必須]** APIログを保存するバケット名。                                                                             |
+| `allow_data_public_access`     | boolean | `false`      | `resource_bucket` にアップロードしたデータのうち、マスターデータや母港データにパブリックアクセスを許可する。[^2][^3] |
+| `allow_resource_public_access` | boolean | `false`      | `resource_bucket` にアップロードしたデータのうち、画像リソースやスプライトCSS,HTMLにパブリックアクセスを許可する。   |
 
 設定例1: *Cloudflare R2*
 
@@ -43,9 +43,9 @@ region = "auto" # Cloudflare R2の場合は"auto"を指定
 access_key_id = "<accessKeyId>"
 secret_access_key = "<secretAccessKey>"
 resource_bucket = "x-ray"
-data_bucket = "x-ray"
 api_log_bucket = "x-ray-log"
-allow_public_access = true
+allow_data_public_access = true
+allow_resource_public_access = true
 ```
 
 設定例2: *Amazon S3 東京リージョン*
@@ -57,9 +57,9 @@ region = "ap-northeast-1"
 access_key_id = "<accessKeyId>"
 secret_access_key = "<secretAccessKey>"
 resource_bucket = "x-ray"
-data_bucket = "x-ray"
 api_log_bucket = "x-ray-log"
-allow_public_access = false
+allow_data_public_access = true
+allow_resource_public_access = true
 ```
 
 設定例3: *Docker Composeで同じコンテナグループ上にあるMinIO*
@@ -71,9 +71,9 @@ region = "us-east-1"
 access_key_id = "dummy-access-key"
 secret_access_key = "dummy-secret-key"
 resource_bucket = "x-ray"
-data_bucket = "x-ray"
 api_log_bucket = "x-ray-log"
-allow_public_access = true
+allow_data_public_access = true
+allow_resource_public_access = true
 ```
 
 ## `[storage.cloudflare]` Cloudflare R2設定
@@ -90,7 +90,6 @@ APIトークンやZone IDについては下記リンク先のCloudflare公式ド
 | `api_token`                        | string | なし         | **[必須]** CloudflareのAPIトークン。`zone_id` で指定するゾーンの *Zone.Cache Purge* パーミッションが付与されていること。 |
 | `zone_id`                          | string | なし         | **[必須]** CloudflareのZone ID。                                                                                         |
 | `resource_bucket_public_host_name` | string | なし         | **[必須]** `resource_bucket` の公開ホスト名。                                                                            |
-| `data_bucket_public_host_name`     | string | なし         | **[必須]** `data_bucket` の公開ホスト名。                                                                                |
 
 設定例:
 
@@ -99,7 +98,6 @@ APIトークンやZone IDについては下記リンク先のCloudflare公式ド
 api_token = "<cloudflareApiToken>"
 zone_id = "<cloudflareZoneId>"
 resource_bucket_public_host_name = "pub-resource-xxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
-data_bucket_public_host_name = "pub-data-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev"
 ```
 
 ## `[resource]` リソース保存設定
@@ -230,6 +228,6 @@ local_token = "eyJhbG..............."
 
 [^1]: 例えば、X-Ray ProxyではETagがオブジェクトのMD5ダイジェストである前提の実装になっていますが、S3ではバケットの暗号化設定によってはETagがMD5ダイジェストとは異なる値になることがあります。
 
-[^2]: バケットのデフォルトでパブリックアクセスが許可されている場合は、`allow_public_access = false` に設定してもパブリックアクセスが許可されます。
+[^2]: バケットのデフォルトでパブリックアクセスが許可されている場合は、`allow_{data,resource}_public_access = false` に設定してもパブリックアクセスが許可されます。
 
-[^3]: S3ではバケットのACLが有効になっていないと `allow_public_access = true` に設定した際に `AccessControlListNotSupported` エラーが発生してアップロードに失敗します。
+[^3]: S3ではバケットのACLが有効になっていないと `allow_{data,resource}_public_access = true` に設定した際に `AccessControlListNotSupported` エラーが発生してアップロードに失敗します。

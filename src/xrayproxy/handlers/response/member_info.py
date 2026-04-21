@@ -59,9 +59,10 @@ class MemberInfoResponseHandler(
         super().configure(config)
         self.configure_object_storage(
             config,
-            config.storage.data_bucket,
+            config.storage.resource_bucket,
+            allow_public_access=config.storage.allow_data_public_access,
             purge_cache=True,
-            cf_public_host_name=config.storage.cloudflare.data_bucket_public_host_name,
+            cf_public_host_name=config.storage.cloudflare.resource_bucket_public_host_name,
         )
         self.configure_json_response_handler(config.api_log)
         self.configure_webhook_client(config)

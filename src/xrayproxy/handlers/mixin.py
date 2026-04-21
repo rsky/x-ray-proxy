@@ -141,12 +141,13 @@ class ObjectStorageMixin:
         self,
         config: Config,
         bucket: str,
+        allow_public_access: bool = False,
         purge_cache: bool = False,
         cf_public_host_name: Optional[str] = None,
     ) -> None:
         self._s3_bucket = bucket
         self._s3_client_kwargs = config.storage.to_s3_client_kwargs()
-        self._s3_allow_public_access = config.storage.allow_public_access
+        self._s3_allow_public_access = allow_public_access
 
         self._purge_cache_enabled = purge_cache
 

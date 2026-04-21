@@ -5,10 +5,10 @@ endpoint_url = "http://minio:9000"
 region = "us-east-1"
 access_key_id = "dummy-access-key"
 secret_access_key = "dummy-secret-key"
-resources_bucket = "x-ray"
-data_bucket = "x-ray"
+resource_bucket = "x-ray"
 api_log_bucket = "x-ray-log"
-allow_public_access = true
+allow_data_public_access = true
+allow_resource_public_access = true
 
 [resource]
 save_mode = "default"

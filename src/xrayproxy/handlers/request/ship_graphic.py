@@ -49,6 +49,7 @@ class ShipGraphicRequestHandler(BaseRequestHandler, DatabaseMixin, ObjectStorage
         self.configure_object_storage(
             config,
             config.storage.resource_bucket,
+            allow_public_access=config.storage.allow_resource_public_access,
             purge_cache=True,
             cf_public_host_name=config.storage.cloudflare.resource_bucket_public_host_name,
         )
