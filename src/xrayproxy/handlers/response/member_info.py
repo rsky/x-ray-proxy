@@ -61,7 +61,7 @@ class MemberInfoResponseHandler(
             config,
             config.storage.resource_bucket,
             allow_public_access=config.storage.allow_data_public_access,
-            purge_cache=True,
+            purge_cache_on_upload=True,
             cf_public_host_name=config.storage.cloudflare.resource_bucket_public_host_name,
         )
         self.configure_json_response_handler(config.api_log)

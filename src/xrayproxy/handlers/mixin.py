@@ -129,7 +129,7 @@ class ObjectStorageMixin:
     _s3_bucket: str
     _s3_client_kwargs: dict[str, Any]
     _s3_allow_public_access: bool
-    _purge_cache_enabled: bool
+    _purge_cache_on_upload: bool
     _cf_client: Optional[AsyncCloudflare]
     _cf_zone_id: str
     _cf_public_host_name: str
@@ -142,14 +142,14 @@ class ObjectStorageMixin:
         config: Config,
         bucket: str,
         allow_public_access: bool = False,
-        purge_cache: bool = False,
+        purge_cache_on_upload: bool = False,
         cf_public_host_name: Optional[str] = None,
     ) -> None:
         self._s3_bucket = bucket
         self._s3_client_kwargs = config.storage.to_s3_client_kwargs()
         self._s3_allow_public_access = allow_public_access
 
-        self._purge_cache_enabled = purge_cache
+        self._purge_cache_on_upload = purge_cache_on_upload
 
         self._cf_client = None
         self._cf_zone_id = ""
@@ -157,7 +157,7 @@ class ObjectStorageMixin:
 
         # Cloudflare固有設定
         cf = config.storage.cloudflare
-        if purge_cache and cf.api_token and cf.zone_id and cf_public_host_name:
+        if purge_cache_on_upload and cf.api_token and cf.zone_id and cf_public_host_name:
             self._cf_client = AsyncCloudflare(
                 api_token=cf.api_token,
             )
@@ -348,7 +348,7 @@ class ObjectStorageMixin:
             raise
 
     async def _purge_cache_if_required(self, key: str) -> None:
-        if not self._purge_cache_enabled or self._cf_client is None:
+        if not self._purge_cache_on_upload or self._cf_client is None:
             return
 
         # https://developers.cloudflare.com/api/resources/cache/methods/purge/
