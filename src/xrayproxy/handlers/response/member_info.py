@@ -7,6 +7,7 @@ from xrayproxy.config import Config
 from xrayproxy.lib.decorators import error_logging
 from xrayproxy.lib.xray import Context
 
+from ...config.cloudflare import get_r2_resource_public_host_name
 from ..base import BaseResponseHandler
 from ..mixin import (
     DEFAULT_COMPRESSION_METHOD,
@@ -59,9 +60,10 @@ class MemberInfoResponseHandler(
         super().configure(config)
         self.configure_object_storage(
             config,
-            config.storage.data_bucket,
-            purge_cache=True,
-            cf_public_host_name=config.storage.cloudflare.data_bucket_public_host_name,
+            config.storage.resource_bucket,
+            allow_public_access=config.storage.allow_data_public_access,
+            purge_cache_on_upload=True,
+            cf_public_host_name=get_r2_resource_public_host_name(config.cloudflare),
         )
         self.configure_json_response_handler(config.api_log)
         self.configure_webhook_client(config)

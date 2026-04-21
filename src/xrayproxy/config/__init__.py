@@ -1,3 +1,4 @@
+from .cloudflare import CloudflareConfig
 from .logbook_kai import LogbookKaiConfig
 from .rewrite import (
     MuteEnemyVoiceConfig,
@@ -7,11 +8,11 @@ from .rewrite import (
 )
 from .root import Config, load_config_toml
 from .save import ApiLogConfig, ResourceConfig
-from .storage import CloudflareStorageConfig, StorageConfig
+from .storage import StorageConfig
 
 __all__ = [
     "ApiLogConfig",
-    "CloudflareStorageConfig",
+    "CloudflareConfig",
     "Config",
     "LogbookKaiConfig",
     "MuteEnemyVoiceConfig",

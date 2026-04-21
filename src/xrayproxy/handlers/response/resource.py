@@ -11,6 +11,7 @@ from typing import Optional
 from PIL import Image
 
 from xrayproxy.config import Config
+from xrayproxy.config.cloudflare import get_r2_resource_public_host_name
 from xrayproxy.generated.sqlc.master_data import (
     Querier,
     SetShipgraphDamagedSizeParams,
@@ -181,8 +182,9 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
         self.configure_object_storage(
             config,
             config.storage.resource_bucket,
-            purge_cache=True,
-            cf_public_host_name=config.storage.cloudflare.resource_bucket_public_host_name,
+            allow_public_access=config.storage.allow_resource_public_access,
+            purge_cache_on_upload=True,
+            cf_public_host_name=get_r2_resource_public_host_name(config.cloudflare),
         )
 
         self._save_mode = config.resource.save_mode or SaveMode.DEFAULT

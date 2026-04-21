@@ -1,8 +1,9 @@
 import os
 import tomllib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
+from .cloudflare import create_cloudflare_config
 from .logbook_kai import create_logbook_kai_config
 from .rewrite import create_rewrite_config
 from .save import create_api_log_config, create_resource_config
@@ -11,6 +12,7 @@ from .utils import SubConfigLoader, parse_log_verbosity
 from .xray import create_x_ray_config
 
 if TYPE_CHECKING:
+    from .cloudflare import CloudflareConfig
     from .logbook_kai import LogbookKaiConfig
     from .rewrite import RewriteConfig
     from .save import ApiLogConfig, ResourceConfig
@@ -36,6 +38,7 @@ class Config:
     storage: "StorageConfig"
     logbook_kai: "LogbookKaiConfig"
     rewrite: "RewriteConfig"
+    cloudflare: Optional["CloudflareConfig"]
 
 
 def load_config(loader: SubConfigLoader, data: dict[str, Any]) -> Config:
@@ -64,6 +67,7 @@ def load_config(loader: SubConfigLoader, data: dict[str, Any]) -> Config:
         storage=create_storage_config(loader.get(data, "storage")),
         logbook_kai=create_logbook_kai_config(loader.get(data, "logbook_kai")),
         rewrite=create_rewrite_config(loader.get(data, "rewrite")),
+        cloudflare=create_cloudflare_config(loader.get(data, "cloudflare")) if "cloudflare" in data else None,
     )
 
 
