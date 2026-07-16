@@ -271,12 +271,21 @@ class ResourceResponseHandler(BaseResponseHandler, DatabaseMixin, ObjectStorageM
             version = store_ctx.query.get("version")
             extension = ".webp" if png_as_webp else ".png"
             copy_suffix = None
+
             if version and self._ship_graphic_versioning:
                 copy_suffix = f"_v{version}"
+
             if extra.startswith("_d_"):
                 # 弱体化(装甲破砕後)画像のパスは /kcs2/resources/ship/full/{padded_ship_id}_d_{hash}_{filename}.png
                 # hash は通常のフルサイズ画像と同じで、filename も api_mst_shipgraph にあるもの
                 graphic_type += "_debuff"  # full_d だと full_dmg との区別がつきにくいので full_debuff とする
+            elif extra.startswith("_b_"):
+                # 軽巡ム級の場合に存在する中破/大破バナー
+                graphic_type += "_broken"
+            elif len(extra) >= 3 and extra[2] == '_':
+                # その他 _x_ 形式に対応するための予備
+                graphic_type += extra[0:2]
+
             (object_key, copy_object_key) = make_ship_graphic_object_keys(
                 graphic_type, padded_ship_id, copy_suffix, extension
             )
