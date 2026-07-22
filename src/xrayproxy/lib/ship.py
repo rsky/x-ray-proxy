@@ -5,7 +5,9 @@ from xrayproxy.lib.hash import ship_graphic_hash
 from xrayproxy.lib.http import QUERY_KEY_NO_REPLACE, QUERY_VALUE_NO_REPLACE
 
 
-def ship_graphic_url(sg: Shipgraph, graphic_type: str, debuff: bool = False, no_replace: bool = False) -> str:
+def ship_graphic_url(
+    sg: Shipgraph, graphic_type: str, debuff: bool = False, broken: bool = False, no_replace: bool = False
+) -> str:
     """
     艦娘画像のURLを生成する
     """
@@ -14,8 +16,17 @@ def ship_graphic_url(sg: Shipgraph, graphic_type: str, debuff: bool = False, no_
     if graphic_type in {"full", "full_dmg"}:
         if debuff:
             filename = f"{sg.ship_id:04d}_d_{hash_value}_{sg.filename}.png"
+        elif broken:
+            filename = f"{sg.ship_id:04d}_b_{hash_value}_{sg.filename}.png"
         else:
             filename = f"{sg.ship_id:04d}_{hash_value}_{sg.filename}.png"
+    elif graphic_type in {"banner", "banner_dmg"}:
+        if debuff:
+            filename = f"{sg.ship_id:04d}_d_{hash_value}.png"
+        elif broken:
+            filename = f"{sg.ship_id:04d}_b_{hash_value}.png"
+        else:
+            filename = f"{sg.ship_id:04d}_{hash_value}.png"
     else:
         filename = f"{sg.ship_id:04d}_{hash_value}.png"
 

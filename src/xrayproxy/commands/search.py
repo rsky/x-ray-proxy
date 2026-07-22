@@ -168,6 +168,15 @@ def print_ship(
     if options is None:
         options = ImageOptions()
 
+    # 弱体化(装甲破砕後)画像のある深海棲艦か
+    # "壊"でなくてもあったり、"壊"でもなかったりするが、とりあえず
+    enemy_with_debuff = any(ship.name.endswith(x) for x in ("鬼-壊", "姫-壊")) or any(
+        ship.name == x for x in ("軽巡ウ級-壊", "重巡ヰ級-壊")
+    )
+
+    # 中破画像のある深海棲艦か
+    enemy_with_dmg = any(ship.name == x for x in ("軽巡ム級", "軽巡ウ級", "重巡ヰ級"))
+
     shipgraph = querier.get_latest_shipgraph(ship_id=ship.id)
     if shipgraph:
         if ship.picture_book_no is not None:
@@ -188,8 +197,14 @@ def print_ship(
             if options.reward:
                 graphic_types.append("reward_card")
                 graphic_types.append("reward_icon")
+        elif enemy_with_dmg:
+            # 一部の深海棲艦のみ*_dmg画像がある
+            graphic_types = ["full", "full_dmg"]
+            if options.banner:
+                graphic_types.append("banner")
+                graphic_types.append("banner_dmg")
         else:
-            # 深海棲艦は*_dmg画像がない
+            # 通常の深海棲艦は*_dmg画像がない
             graphic_types = ["full"]
             if options.banner:
                 graphic_types.append("banner")
@@ -197,10 +212,14 @@ def print_ship(
         for graphic_type in graphic_types:
             url = ship_graphic_url(shipgraph, graphic_type, no_replace=options.no_replace)
             print(f"{indent}[画像:{graphic_type}] {url}")
-            if graphic_type == "full" and (ship.name.endswith("姫-壊") or ship.name.endswith("鬼-壊")):
-                # 弱体化(装甲破砕後)画像。"壊"でなくてもあったり、"壊"でもなかったりするが、とりあえず。
-                url = ship_graphic_url(shipgraph, "full", debuff=True)
+            if graphic_type in {"full", "banner"} and enemy_with_debuff:
+                # 弱体化(装甲破砕後)画像
+                url = ship_graphic_url(shipgraph, graphic_type, debuff=True)
                 print(f"{indent}[画像:full(弱体化)] {url}")
+            elif graphic_type == "banner_dmg" and enemy_with_dmg:
+                # 中破バナー画像
+                url = ship_graphic_url(shipgraph, graphic_type, broken=True)
+                print(f"{indent}[画像:{graphic_type}(中破)] {url}")
 
     if ship.after_ship_id is None:
         # after ship is not defined
