@@ -1,13 +1,18 @@
 import datetime
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Mapping, Optional
 
 from mitmproxy.http import Headers, HTTPFlow, Request, Response
-from x_ray_webhook import NOT_GIVEN, APIConnectionError, AsyncXRayWebhook, NotGiven
-from x_ray_webhook.resources import AsyncAPIDataResource, AsyncMemberInfoResource, AsyncResourceResource
-from x_ray_webhook.types import api_data_send_params
+from x_ray_webhook import ApiClient, ApiException, Configuration, DefaultApi
+from x_ray_webhook.models.api_data_post_request import ApiDataPostRequest
+from x_ray_webhook.models.api_data_post_request_log import ApiDataPostRequestLog
+from x_ray_webhook.models.api_data_post_request_request import ApiDataPostRequestRequest
+from x_ray_webhook.models.api_data_post_request_response import ApiDataPostRequestResponse
+from x_ray_webhook.models.api_data_post_request_response_data import ApiDataPostRequestResponseData
+from x_ray_webhook.models.member_info_post_request import MemberInfoPostRequest
+from x_ray_webhook.models.resource_update_post_request import ResourceUpdatePostRequest
 
 from xrayproxy.config.xray import XRayWebhookConfig
 
@@ -61,9 +66,9 @@ class ResponseData:
 @dataclass(frozen=True, kw_only=True, slots=True, eq=False)
 class ApiDataPayload:
     member_id: int
-    request: api_data_send_params.Request
-    response: api_data_send_params.Response
-    log: api_data_send_params.Log | NotGiven = NOT_GIVEN
+    request: ApiDataPostRequestRequest
+    response: ApiDataPostRequestResponse
+    log: Optional[ApiDataPostRequestLog] = None
 
 
 class XRayWebhookClient:
@@ -75,15 +80,18 @@ class XRayWebhookClient:
         client_secret: str,
         default_headers: Mapping[str, str] | None = None,
     ) -> None:
-        self._client = AsyncXRayWebhook(
-            base_url=base_url,
-            client_id=client_id,
-            client_secret=client_secret,
-            default_headers=default_headers,
-        )
-        self._api_data = AsyncAPIDataResource(self._client)
-        self._resource = AsyncResourceResource(self._client)
-        self._member_info = AsyncMemberInfoResource(self._client)
+        configuration = Configuration(host=base_url)
+        self._client = ApiClient(configuration=configuration)
+
+        if client_id:
+            self._client.set_default_header("CF-Access-Client-Id", client_id)  # type: ignore[no-untyped-call]
+        if client_secret:
+            self._client.set_default_header("CF-Access-Client-Secret", client_secret)  # type: ignore[no-untyped-call]
+        if default_headers:
+            for k, v in default_headers.items():
+                self._client.set_default_header(k, v)  # type: ignore[no-untyped-call]
+
+        self._api = DefaultApi(self._client)
 
     async def __aenter__(self) -> "XRayWebhookClient":
         return self
@@ -92,38 +100,49 @@ class XRayWebhookClient:
         await self.dispose()
 
     async def dispose(self) -> None:
-        await self._client.close()
+        await self._client.close()  # type: ignore[no-untyped-call]
 
     async def send_api_data(self, payload: ApiDataPayload) -> None:
         """
         APIリクエスト/レスポンスの情報を送信する
         """
         try:
-            await self._api_data.send(**asdict(payload))
-        except APIConnectionError as e:
-            logger.error(f"Failed to connect to the X-Ray Webhook endpoint: {e.message}")
+            req = ApiDataPostRequest(
+                member_id=payload.member_id,
+                request=payload.request,
+                response=payload.response,
+                log=payload.log,
+            )
+            await self._api.api_data_post(api_data_post_request=req)
+        except ApiException as e:
+            logger.error(f"Failed to connect to the X-Ray Webhook endpoint: {e}")
 
     async def send_member_info(self, member_id: int, nickname: str, host: str) -> None:
         """
         提督ID、ニックネーム、ホスト名を送信する
         """
         try:
-            await self._member_info.send(
+            req = MemberInfoPostRequest(
                 member_id=member_id,
                 nickname=nickname,
                 host=host,
             )
-        except APIConnectionError as e:
-            logger.error(f"Failed to connect to the X-Ray Webhook endpoint: {e.message}")
+            await self._api.member_info_post(member_info_post_request=req)
+        except ApiException as e:
+            logger.error(f"Failed to connect to the X-Ray Webhook endpoint: {e}")
 
     async def update_resource(self, key: str, timestamp_in_millis: int) -> None:
         """
         リソースのキャッシュを無効化する
         """
         try:
-            await self._resource.update(key=key, timestamp=timestamp_in_millis)
-        except APIConnectionError as e:
-            logger.error(f"Failed to connect to the X-Ray Webhook endpoint: {e.message}")
+            req = ResourceUpdatePostRequest(
+                key=key,
+                timestamp=timestamp_in_millis,
+            )
+            await self._api.resource_update_post(resource_update_post_request=req)
+        except ApiException as e:
+            logger.error(f"Failed to connect to the X-Ray Webhook endpoint: {e}")
 
 
 def create_webhook_client(config: XRayWebhookConfig) -> XRayWebhookClient:
@@ -228,21 +247,21 @@ def create_payload(
 
     return ApiDataPayload(
         member_id=member_id,
-        request={
-            "url": context.request.url,
-            "parameters": safe_request_params,
-        },
-        response={
-            "timestamp": context.respond_at_millis,
-            "data": recursive_shorten_keys(data, "api_data"),
-        },
+        request=ApiDataPostRequestRequest(
+            url=context.request.url,
+            parameters=safe_request_params,
+        ),
+        response=ApiDataPostRequestResponse(
+            timestamp=context.respond_at_millis,
+            data=ApiDataPostRequestResponseData(recursive_shorten_keys(data, "api_data")),
+        ),
         log=(
-            {
-                "bucket": log_bucket,
-                "key": log_key,
-            }
+            ApiDataPostRequestLog(
+                bucket=log_bucket,
+                key=log_key,
+            )
             if log_bucket and log_key
-            else NOT_GIVEN
+            else None
         ),
     )
 

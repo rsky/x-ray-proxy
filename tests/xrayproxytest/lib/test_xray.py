@@ -167,7 +167,15 @@ class XRayTestCase(unittest.TestCase):
                 "key": "test-key",
             },
         }
-        self.assertDictEqual(asdict(payload), expected)
+        from x_ray_webhook.models.api_data_post_request import ApiDataPostRequest
+
+        req = ApiDataPostRequest(
+            member_id=payload.member_id,
+            request=payload.request,
+            response=payload.response,
+            log=payload.log,
+        )
+        self.assertDictEqual(req.to_dict(), expected)
 
 
 if __name__ == "__main__":
