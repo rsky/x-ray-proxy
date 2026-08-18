@@ -7,13 +7,13 @@ authors = [
 ]
 dependencies = [
     "aioboto3>=15.5.0",
-    "alembic>=1.19.0",
+    "alembic>=1.19.1",
     "Brotli>=1.2.0",
     "cloudflare>=5.6.0",
     "httpx[http2,brotli,zstd]>=0.28.1",
     "mitmproxy>=12.2.3",
     "pillow>=12.3.0",
-    "SQLAlchemy>=2.0.48",
+    "SQLAlchemy>=2.0.52",
     "tenacity>=9.1.4",
     "x-ray-webhook==2.0.0",
     "zstandard>=0.25.0",
@@ -29,9 +29,9 @@ dev = [
     "mdformat-gfm>=1.0.0",
     "mdformat-gfm-alerts>=2.1.0",
     "mdformat-tables>=1.0.0",
-    "mypy>=2.3.0",
+    "mypy>=2.3.1",
     "poethepoet>=0.48.0",
-    "ruff>=0.16.1",
+    "ruff>=0.16.3",
     "types-aioboto3[s3]>=15.5.0",
 ]
 
