@@ -31,7 +31,7 @@ dev = [
     "mdformat-tables>=1.0.0",
     "mypy>=2.3.1",
     "poethepoet>=0.48.0",
-    "ruff>=0.16.3",
+    "ruff>=0.16.5",
     "types-aioboto3[s3]>=15.5.0",
 ]
 
