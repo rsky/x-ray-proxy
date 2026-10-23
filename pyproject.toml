@@ -7,11 +7,11 @@ authors = [
 ]
 dependencies = [
     "aioboto3>=15.5.0",
-    "alembic>=1.20.0",
+    "alembic>=1.20.1",
     "brotli>=1.2.0",
     "cloudflare>=5.9.0",
     "httpx[http2,brotli,zstd]>=0.28.1",
-    "mitmproxy>=12.2.3",
+    "mitmproxy>=12.3.0",
     "pillow>=13.0.0",
     "sqlalchemy>=2.0.55,<2.1.0",
     "tenacity>=9.2.1",
@@ -31,7 +31,7 @@ dev = [
     "mdformat-tables>=1.0.0",
     "mypy>=2.4.0",
     "poethepoet>=0.49.0",
-    "ruff>=0.17.1",
+    "ruff>=0.17.2",
     "types-aioboto3[s3]>=15.5.0",
 ]
 
